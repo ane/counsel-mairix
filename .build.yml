@@ -1,0 +1,14 @@
+image: archlinux
+sources:
+  - https://git.sr.ht/~ane/ivy-mairix
+secrets:
+  - 1d566b53-84ba-4840-afac-e20f0b3b02ef
+tasks:
+  - mirror-to-github: |
+      cd ~/ivy-mairix
+      echo -e "Host github.com\n  IdentityFile /home/build/.ssh/1d566b53-84ba-4840-afac-e20f0b3b02ef\n  IdentitiesOnly yes\n  BatchMode yes" >> ~/.ssh/config
+      ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+      git remote add github git@github.com:ane/ivy-mairix.git
+      git push --prune github +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
+      
+      
