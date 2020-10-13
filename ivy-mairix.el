@@ -25,13 +25,12 @@
 
 ;;; Commentary:
 
-;; ivy-mairix is an ivy interface for mairix. Invoke `ivy-mairix' to start
+;; ivy-mairix is an ivy interface for mairix.  Invoke `ivy-mairix' to start
 ;; a search with an ivy interface.
 
 ;;; Code:
 (require 'cl-lib)
 (require 'cl-generic)
-(require 'eieio)
 
 
 ;; Custom stuff.
@@ -40,8 +39,8 @@
   :group :mail)
 
 (defcustom ivy-mairix-mail-frontend nil
-  "Mail program to display search results. The default is to
-defer to `mairix-mail-program', which is probably a good idea,
+  "Mail program to display search results.
+The default is to defer to `mairix-mail-program', which is probably a good idea,
 because the format used by Mairix might not be compatible with
 the frontend set here."
   :type '(choice (const :tag "Default (i.e. nil) to `mairix-mail-program'" nil)
@@ -53,14 +52,10 @@ the frontend set here."
 
 ;; Generic methods that form the backbone of the search mechanism.
 (cl-defgeneric ivy-mairix-run-search (frontend search-string)
-  "Run Mairix with the search string SEARCH-STRING using
-  FRONTEND.")
+  "Run Mairix with the search string SEARCH-STRING using FRONTEND.")
 
 (cl-defgeneric ivy-mairix-display-result-message (message)
   "Display MESSAGE using the right frontend.")
-
-(defclass ivy-mairix-result-message ()
-  nil)
 
 (defun ivy-mairix-determine-frontend ()
   "Try to compute the frontend that the user of Mairix is using."
@@ -68,22 +63,19 @@ the frontend set here."
       mairix-mail-program))
 
 (defun ivy-mairix-search-file ()
-  "Get the full path to the Mairix search file as given by `mairix-file-path'
-and `mairix-search-file."
+  "Get the full path to the Mairix search file as given by `mairix-file-path' and `mairix-search-file."
   (concat (file-name-as-directory (expand-file-name mairix-file-path))
           mairix-search-file))
 
 
 ;;; Rmail implementation of ivy-mairix.
 
-(defclass ivy-mairix-rmail-result ()
-  ((mbox-file :initarg :mbox)
-   (msgnum    :initarg :msgnum)
-   (text      :initarg :text)))
+(cl-defstruct ivy-mairix-rmail-result
+  "A Mairix result entry to be displayed in Rmail."
+  mbox-file msgnum)
 
 (cl-defmethod ivy-mairix-run-search ((frontend (eql rmail)) search-string)
-  "Perform a Mairix search using STR using Rmail as the
-displaying frontend."
+  "Perform a Mairix search using SEARCH-STRING using Rmail as the displaying FRONTEND."
   (let ((config (current-window-configuration))
         (search-file (ivy-mairix-search-file))
         sumbuf rmailbuf)
@@ -110,19 +102,18 @@ displaying frontend."
           (when sumbuf
             (kill-buffer sumbuf))
           (set-window-configuration config)
-          (cl-mapcar
+          (mapcar
            (lambda (str)
-             (when-let* ((num (string-to-number (substring str 0 6))))
+             (when-let ((num (string-to-number (substring str 0 6))))
                ;; Ivy doesn't support rich results so we have to stuff things into
                ;; text properties.
-               (propertize str 'result (ivy-mairix-rmail-result :msgnum num :mbox search-file))
+               (propertize str 'result (make-ivy-mairix-rmail-result :msgnum num :mbox-file search-file))
                ))
            (seq-remove #'string-empty-p results)))))))
 
 (cl-defmethod ivy-mairix-display-result-message ((result ivy-mairix-rmail-result))
-  (with-slots (msgnum mbox-file) result
-    (rmail mbox-file)
-    (rmail-show-message msgnum)))
+  (rmail (ivy-mairix-rmail-result-mbox-file result))
+  (rmail-show-message (ivy-mairix-rmail-result-msgnum result)))
 
 
 ;; Gnus implementation of the generic methods.
@@ -132,24 +123,21 @@ displaying frontend."
 ;; The main implementation.
 
 (defun ivy-mairix-do-search (str)
-  "Either wait for more chars using `ivy-more-chars' or perform
-the search using STR after determining the correct search backend."
+  "Either wait for more chars using `ivy-more-chars' or perform the search using STR after determining the correct search backend."
   (or (ivy-more-chars)
       (ivy-mairix-run-search (ivy-mairix-determine-frontend) str)
       '("" "working...")))
 
 (cl-defmethod ivy-mairix-display-result-message ((result string))
-  "Dispatch to `ivy-mairix-display-result-message' using the
-result class stored in the 'result property of the search result,
-since the result class is stored there."
+  "Dispatch to `ivy-mairix-display-result-message' using the RESULT class stored in the 'result property of the search result, since the result class is stored there."
   (when-let (res (get-text-property 0 'result result))
     (ivy-mairix-display-result-message res)))
 
 
 ;;;###autoload
 (defun ivy-mairix (&optional initial-input)
-  "Search using Mairix with an Ivy frontend. It will determine
-the correct backend automatically based on the variable
+  "Search using Mairix with an Ivy frontend.
+It will determine the correct backend automatically based on the variable
 `mairix-mail-program', this can be overridden using
 `ivy-mairix-mail-frontend'.
 
