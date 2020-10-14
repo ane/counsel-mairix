@@ -1,0 +1,4 @@
+base=~/tests
+mbox=~/tests/...
+mformat=mbox
+database=~/tests/mairixdb

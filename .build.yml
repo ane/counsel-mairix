@@ -1,4 +1,7 @@
-image: archlinux
+image: debian/stable
+packages:
+  - mairix
+  - emacs
 sources:
   - https://git.sr.ht/~ane/ivy-mairix
 secrets:
@@ -10,5 +13,19 @@ tasks:
       ssh-keyscan -H github.com >> ~/.ssh/known_hosts
       git remote add github git@github.com:ane/ivy-mairix.git
       git push --prune github +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
+  - emacs: |
+      emacs -Q --batch -L ivy-mairix \
+          --eval '(setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")' \
+          --eval '(package-initialize)' \
+          --eval '(package-refresh-contents)' \
+          --eval '(defun install-latest (p) 
+                    (package-install 
+                      (cadr (assoc p 
+                             package-archive-contents 
+                             (quote equal)))))' \
+          --eval '(install-latest (quote ivy))' \
+          -l ivy-mairix.el \
+          -l ivy-mairix-tests.el \
+          --eval '(ert-run-tests-batch-and-exit (quote t))' 
       
       
