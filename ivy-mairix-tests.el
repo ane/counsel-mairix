@@ -32,5 +32,8 @@
   (not (null (executable-find "mairix"))))
 
 (ert-deftest test-packages ()
-  "Test whether ivy is installed."
-  (featurep 'ivy))
+  "Test whether ivy and mairix are installed."
+  (and (featurep 'ivy)
+       (featurep 'mairix)))
+
+
