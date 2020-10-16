@@ -1,4 +1,4 @@
-base=~/tests
-mbox=~/tests/...
+base=~/counsel-mairix/
+mbox=~/counsel-mairix/tests/...
 mformat=mbox
-database=~/tests/mairixdb
+database=~/counsel-mairix/tests/mairixdb

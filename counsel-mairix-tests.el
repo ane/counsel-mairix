@@ -27,13 +27,56 @@
 
 ;; tests for counsel-mairix.
 
+;;; Code:
+(require 'ert)
+(require 'ert-x)
+(require 'seq)
+
+(defconst 'mairixrc "tests/mairixc")
+(defconst 'result-mbox "test.mbox")
+
+;;; Some basic tests to ensure mairix is working correctly.
 (ert-deftest test-mairix-presence ()
   "Test whether mairix is installed on the system."
-  (not (null (executable-find "mairix"))))
+  (should (not (null (executable-find "mairix")))))
 
 (ert-deftest test-packages ()
   "Test whether counsel and mairix are installed."
-  (and (featurep 'counsel)
-       (featurep 'mairix)))
+  (should (and (featurep 'counsel)
+               (featurep 'mairix))))
+
+(ert-deftest test-implementation-detection ()
+  "Test whether implementation detection works correctly."
+  (dolist (impl '(rmail gnus vm foo))
+    (let ((mairix-mail-program impl))
+      (should (eql impl (counsel-mairix-determine-frontend))))))
+
+(ert-deftest test-implementation-override ()
+  "Test whether implementation override works correctly."
+  (let ((mairix-mail-program 'foobar))
+    (eql 'foobar (counsel-mairix-determine-frontend))))
 
 
+(ert-deftest test-baseline-mairix-search ()
+  "Test whether our 'standard query' works as expected."
+  (ert-with-message-capture msgs
+    (with-test-mairix 
+     ;; you'd think the word lisp would'be mentioned more than just 232 times in
+     ;; one month on emacs-devel, huh?
+     (mairix-search "lisp" t))
+    (should (cl-search "Matched 232 messages" msgs))))
+
+
+(defmacro with-test-mairix (&rest body)
+  `(unwind-protect
+       (progn
+         (let ((mairix-command (format "mairix -f tests/mairixrc"))
+               (mairix-search-file "test.mbox"))
+           ,@body))
+     (kill-buffer "test.mbox")
+     (dolist (file (list "tests/mairixdb" "test.mbox"))
+       (when (file-exists-p file)
+         (message "Deleting file %s." file)
+         (delete-file file)))))
+
+;;; counsel-mairix-tests.el ends here.
