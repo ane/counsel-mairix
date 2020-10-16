@@ -1,15 +1,15 @@
-# ivy-mairix, an Ivy interface for the Mairix mail indexing program
+# counsel-mairix, an Ivy interface for the Mairix mail indexing program
 
-ivy-mairix is an [Ivy](https://github.com/abo-abo/swiper) interface for rapidly going through [Mairix](https://github.com/vandry/mairix) search
+counsel-mairix is an [Ivy](https://github.com/abo-abo/swiper) interface for rapidly going through [Mairix](https://github.com/vandry/mairix) search
 results. By default, Mairix works by saving the search results into a separate
 file, like a unix [Mbox](https://en.wikipedia.org/wiki/Mbox) file, and then you point your email program to that file
 to display the result. This can be quite inconvenient, since you have to reopen
 the search mailbox every time your search query changes. Using Ivy, we can now
 interactively refine our search and view the results in real time.
 
-Currently this is very much a **work in progress**. ivy-mairix depends on the  [Emacs
+Currently this is very much a **work in progress**. counsel-mairix depends on the  [Emacs
 Interface for Mairix](https://www.gnu.org/software/emacs/manual/html_node/mairix-el/index.html) which is bundled with Emacs. It should work out of the box by
-invoking <kbd>M-x ivy-mairix</kbd> if you have configured it properly (see [Installation](#installation) below).
+invoking <kbd>M-x counsel-mairix</kbd> if you have configured it properly (see [Installation](#installation) below).
 
 **Patches are welcome!** Please note that this package is intended to be a part
 of GNU ELPA, thus for patches over >15 lines your FSF paperwork ought to be in
@@ -44,7 +44,7 @@ For example, if you use Mairix with Mbox format results, configure it like this:
 
 ## TODO stuff (if you feel like contributing)
 
-  * support for threads (i.e. the prefix arg on `ivy-mairix`)
+  * support for threads (i.e. the prefix arg on `counsel-mairix`)
   * support for Gnus and VM frontends
   * `counsel-mairix` i.e. a version of `ivy-mairix` where the current buffer
     changes to display the selected mail

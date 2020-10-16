@@ -1,4 +1,4 @@
-;;; ivy-mairix.el --- Ivy interface for Mairix -*- lexical-binding: t -*-
+;;; counsel-mairix.el --- Counsel interface for Mairix -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2020 Antoine Kalmbach
 
@@ -6,7 +6,7 @@
 ;; Created: 2020-10-10
 ;; Version: 0.1
 ;; Keywords: mail searching
-;; Package-Requires: ((emacs "26.1") (ivy "0.13.1"))
+;; Package-Requires: ((emacs "26.1") (counsel "0.13.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -25,8 +25,8 @@
 
 ;;; Commentary:
 
-;; ivy-mairix is an ivy interface for mairix.  Invoke `ivy-mairix' to start
-;; a search with an ivy interface.
+;; counsel-mairix is an counsel interface for mairix.  Invoke `counsel-mairix' to start
+;; a search with an counsel interface.
 
 ;;; Code:
 (require 'cl-lib)
@@ -34,11 +34,11 @@
 
 
 ;; Custom stuff.
-(defgroup ivy-mairix nil
-  "Options for ivy-mairix."
+(defgroup counsel-mairix nil
+  "Options for counsel-mairix."
   :group :mail)
 
-(defcustom ivy-mairix-mail-frontend nil
+(defcustom counsel-mairix-mail-frontend nil
   "Mail program to display search results.
 The default is to defer to `mairix-mail-program', which is probably a good idea,
 because the format used by Mairix might not be compatible with
@@ -47,37 +47,37 @@ the frontend set here."
                  (const :tag "RMail" rmail)
 		 (const :tag "Gnus mbox" gnus)
 		 (const :tag "VM" vm))
-  :group 'ivy-mairix)
+  :group 'counsel-mairix)
 
 
 ;; Generic methods that form the backbone of the search mechanism.
-(cl-defgeneric ivy-mairix-run-search (frontend search-string)
+(cl-defgeneric counsel-mairix-run-search (frontend search-string)
   "Run Mairix with the search string SEARCH-STRING using FRONTEND.")
 
-(cl-defgeneric ivy-mairix-display-result-message (message)
+(cl-defgeneric counsel-mairix-display-result-message (message)
   "Display MESSAGE using the right frontend.")
 
-(defun ivy-mairix-determine-frontend ()
+(defun counsel-mairix-determine-frontend ()
   "Try to compute the frontend that the user of Mairix is using."
-  (or ivy-mairix-mail-frontend
+  (or counsel-mairix-mail-frontend
       mairix-mail-program))
 
-(defun ivy-mairix-search-file ()
+(defun counsel-mairix-search-file ()
   "Get the full path to the Mairix search file as given by `mairix-file-path' and `mairix-search-file."
   (concat (file-name-as-directory (expand-file-name mairix-file-path))
           mairix-search-file))
 
 
-;;; Rmail implementation of ivy-mairix.
+;;; Rmail implementation of counsel-mairix.
 
-(cl-defstruct ivy-mairix-rmail-result
+(cl-defstruct counsel-mairix-rmail-result
   "A Mairix result entry to be displayed in Rmail."
   mbox-file msgnum)
 
-(cl-defmethod ivy-mairix-run-search ((frontend (eql rmail)) search-string)
+(cl-defmethod counsel-mairix-run-search ((frontend (eql rmail)) search-string)
   "Perform a Mairix search using SEARCH-STRING using Rmail as the displaying FRONTEND."
   (let ((config (current-window-configuration))
-        (search-file (ivy-mairix-search-file))
+        (search-file (counsel-mairix-search-file))
         sumbuf rmailbuf)
     (progn
       (save-excursion
@@ -105,15 +105,15 @@ the frontend set here."
           (mapcar
            (lambda (str)
              (when-let ((num (string-to-number (substring str 0 6))))
-               ;; Ivy doesn't support rich results so we have to stuff things into
+               ;; Counsel doesn't support rich results so we have to stuff things into
                ;; text properties.
-               (propertize str 'result (make-ivy-mairix-rmail-result :msgnum num :mbox-file search-file))
+               (propertize str 'result (make-counsel-mairix-rmail-result :msgnum num :mbox-file search-file))
                ))
            (seq-remove #'string-empty-p results)))))))
 
-(cl-defmethod ivy-mairix-display-result-message ((result ivy-mairix-rmail-result))
-  (rmail (ivy-mairix-rmail-result-mbox-file result))
-  (rmail-show-message (ivy-mairix-rmail-result-msgnum result)))
+(cl-defmethod counsel-mairix-display-result-message ((result counsel-mairix-rmail-result))
+  (rmail (counsel-mairix-rmail-result-mbox-file result))
+  (rmail-show-message (counsel-mairix-rmail-result-msgnum result)))
 
 
 ;; Gnus implementation of the generic methods.
@@ -122,36 +122,36 @@ the frontend set here."
 
 ;; The main implementation.
 
-(defun ivy-mairix-do-search (str)
+(defun counsel-mairix-do-search (str)
   "Either wait for more chars using `ivy-more-chars' or perform the search using STR after determining the correct search backend."
   (or (ivy-more-chars)
-      (ivy-mairix-run-search (ivy-mairix-determine-frontend) str)
+      (counsel-mairix-run-search (counsel-mairix-determine-frontend) str)
       '("" "working...")))
 
-(cl-defmethod ivy-mairix-display-result-message ((result string))
-  "Dispatch to `ivy-mairix-display-result-message' using the RESULT class stored in the 'result property of the search result, since the result class is stored there."
+(cl-defmethod counsel-mairix-display-result-message ((result string))
+  "Dispatch to `counsel-mairix-display-result-message' using the RESULT class stored in the 'result property of the search result, since the result class is stored there."
   (when-let (res (get-text-property 0 'result result))
-    (ivy-mairix-display-result-message res)))
+    (counsel-mairix-display-result-message res)))
 
 
 ;;;###autoload
-(defun ivy-mairix (&optional initial-input)
-  "Search using Mairix with an Ivy frontend.
+(defun counsel-mairix (&optional initial-input)
+  "Search using Mairix with an Counsel frontend.
 It will determine the correct backend automatically based on the variable
 `mairix-mail-program', this can be overridden using
-`ivy-mairix-mail-frontend'.
+`counsel-mairix-mail-frontend'.
 
-ivy-mairix should support the same backends as mairix itself,
+counsel-mairix should support the same backends as mairix itself,
 which are known to be Rmail (default), Gnus and VM. Currently
 only Rmail is supported."
   (interactive)
-  (ivy-read "Search: " #'ivy-mairix-do-search
+  (ivy-read "Mairix query: " #'counsel-mairix-do-search
             :initial-input initial-input
             :dynamic-collection t
-            :action #'ivy-mairix-display-result-message
-            :history 'ivy-mairix-history
-            :caller 'ivy-mairix))
+            :action #'counsel-mairix-display-result-message
+            :history 'counsel-mairix-history
+            :caller 'counsel-mairix))
 
-(provide 'ivy-mairix)
+(provide 'counsel-mairix)
 
-;;; ivy-mairix.el ends here
+;;; counsel-mairix.el ends here

@@ -1,4 +1,4 @@
-;;; ivy-mairix.el --- Ivy interface for Mairix -*- lexical-binding: t -*-
+;;; counsel-mairix.el --- Counsel interface for Mairix -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2020 Antoine Kalmbach
 
@@ -6,7 +6,7 @@
 ;; Created: 2020-10-10
 ;; Version: 0.1
 ;; Keywords: mail searching
-;; Package-Requires: ((emacs "26.1") (ivy "0.13.1"))
+;; Package-Requires: ((emacs "26.1") (counsel "0.13.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -25,15 +25,15 @@
 
 ;;; Commentary:
 
-;; tests for ivy-mairix.
+;; tests for counsel-mairix.
 
 (ert-deftest test-mairix-presence ()
   "Test whether mairix is installed on the system."
   (not (null (executable-find "mairix"))))
 
 (ert-deftest test-packages ()
-  "Test whether ivy and mairix are installed."
-  (and (featurep 'ivy)
+  "Test whether counsel and mairix are installed."
+  (and (featurep 'counsel)
        (featurep 'mairix)))
 
 
