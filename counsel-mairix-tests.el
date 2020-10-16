@@ -31,9 +31,7 @@
 (require 'ert)
 (require 'ert-x)
 (require 'seq)
-
-(defconst 'mairixrc "tests/mairixc")
-(defconst 'result-mbox "test.mbox")
+(require 'mairix)
 
 ;;; Some basic tests to ensure mairix is working correctly.
 (ert-deftest test-mairix-presence ()
@@ -66,14 +64,14 @@
      (mairix-search "lisp" t))
     (should (cl-search "Matched 232 messages" msgs))))
 
-
 (defmacro with-test-mairix (&rest body)
   `(unwind-protect
        (progn
          (let ((mairix-command (format "mairix -f tests/mairixrc"))
                (mairix-search-file "test.mbox"))
            ,@body))
-     (kill-buffer "test.mbox")
+     (when-let (k (get-buffer "test.mbox"))
+       (kill-buffer k))
      (dolist (file (list "tests/mairixdb" "test.mbox"))
        (when (file-exists-p file)
          (message "Deleting file %s." file)

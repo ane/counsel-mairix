@@ -31,6 +31,8 @@
 ;;; Code:
 (require 'cl-lib)
 (require 'cl-generic)
+(require 'mairix)
+(require 'counsel)
 
 
 ;; Custom stuff.
