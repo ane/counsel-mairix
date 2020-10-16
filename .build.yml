@@ -3,15 +3,15 @@ packages:
   - mairix
   - emacs
 sources:
-  - https://git.sr.ht/~ane/ivy-mairix
+  - https://git.sr.ht/~ane/counsel-mairix
 secrets:
   - 1d566b53-84ba-4840-afac-e20f0b3b02ef
 tasks:
   - mirror-to-github: |
-      cd ~/ivy-mairix
+      cd ~/counsel-mairix
       echo -e "Host github.com\n  IdentityFile /home/build/.ssh/1d566b53-84ba-4840-afac-e20f0b3b02ef\n  IdentitiesOnly yes\n  BatchMode yes" >> ~/.ssh/config
       ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-      git remote add github git@github.com:ane/ivy-mairix.git
+      git remote add github git@github.com:ane/counsel-mairix.git
       git push --prune github +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
   - emacs: |
       emacs -Q --batch -L ivy-mairix \
@@ -23,9 +23,9 @@ tasks:
                       (cadr (assoc p 
                              package-archive-contents 
                              (quote equal)))))' \
-          --eval '(install-latest (quote ivy))' \
-          -l ivy-mairix.el \
-          -l ivy-mairix-tests.el \
+                             --eval '(install-latest (quote counsel))' \
+          -l counsel-mairix.el \
+          -l counsel-mairix-tests.el \
           --eval '(ert-run-tests-batch-and-exit (quote t))' 
       
       

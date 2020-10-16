@@ -126,7 +126,7 @@ the frontend set here."
   "Either wait for more chars using `ivy-more-chars' or perform the search using STR after determining the correct search backend."
   (or (ivy-more-chars)
       (counsel-mairix-run-search (counsel-mairix-determine-frontend) str)
-      '("" "working...")))
+      '("" "Searching...")))
 
 (cl-defmethod counsel-mairix-display-result-message ((result string))
   "Dispatch to `counsel-mairix-display-result-message' using the RESULT class stored in the 'result property of the search result, since the result class is stored there."
