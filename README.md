@@ -33,6 +33,13 @@ repository. Thus clone it somewhere in your system and add it to your load path:
 (add-to-list 'load-path "<path-to-this-repo>")
 ```
 
+You can do this using [use-package](http://github.com/jwiegley/use-package):
+
+``` emacs-lisp
+(use-package counsel-mairix
+  :load-path <path>)
+```
+
 If you have the [Emacs Interface for Mairix](https://www.gnu.org/software/emacs/manual/html_node/mairix-el/index.html) configured properly then this should
 work without any additional configuration. Otherwise, you need to configure it.
 For example, if you use Mairix with Mbox format results, configure it like this:
@@ -41,6 +48,27 @@ For example, if you use Mairix with Mbox format results, configure it like this:
 (setq mairix-file-path "~/mail")        ;; The folder where the search file is stored
 (setq mairix-search-file "search.mbox") ;; Name of the search file itself
 ```
+
+## Customization
+
+counsel-mairix defines the following customization variables:
+
+### Custom variable: `counsel-mairix-mail-frontend`
+
+Override the mail program used to create the Ivy search buffer. 
+
+This setting can override which mail program you are normally using for Mairix
+searches defined in [`mairix-mail-program`](https://www.gnu.org/software/emacs/manual/html_node/mairix-el/Extending.html). This can be useful if you want
+traditional Mairix searches to use some mail program (e.g. Gnus) but prefer
+another program to display the Ivy buffer.
+
+It defaults to the value of `mairix-mail-program`.
+
+``` emacs-lisp
+(setq counsel-mairix-mail-frontend 'rmail)
+```
+
+This would force counsel-mairix to use Rmail for displaying the search buffer.
 
 ## TODO stuff (if you feel like contributing)
 
