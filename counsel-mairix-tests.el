@@ -70,10 +70,14 @@
 (ert-deftest test-baseline-mairix-search ()
   "Test whether our 'standard query' works as expected."
   (ert-with-message-capture msgs
-    (with-test-mairix 
-     ;; you'd think the word lisp would'be mentioned more than just 232 times in
+    (with-test-mairix
+     ;; you'd think the word 'lisp' would'be mentioned more than just 187 times in
      ;; one month on emacs-devel, huh?
      (mairix-search "lisp" t))
-    (should (cl-search "Matched 232 messages" msgs))))
+    (should (cl-search "Matched 187 messages" msgs))))
 
 ;;; counsel-mairix-tests.el ends here.
+
+;; Local Variables:
+;; checkdoc-force-docstrings-flag: nil
+;; End:
