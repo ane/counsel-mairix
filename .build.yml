@@ -14,7 +14,8 @@ tasks:
       git remote add github git@github.com:ane/counsel-mairix.git
       git push --prune github +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
   - emacs: |
-      emacs -Q --batch -L counsel-mairix \
+      cd counsel-mairix
+      emacs -Q --batch -L . \
           --eval '(setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")' \
           --eval '(package-initialize)' \
           --eval '(package-refresh-contents)' \

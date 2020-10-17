@@ -49,21 +49,6 @@
     (let ((mairix-mail-program impl))
       (should (eql impl (counsel-mairix-determine-frontend))))))
 
-(ert-deftest test-implementation-override ()
-  "Test whether implementation override works correctly."
-  (let ((mairix-mail-program 'foobar))
-    (eql 'foobar (counsel-mairix-determine-frontend))))
-
-
-(ert-deftest test-baseline-mairix-search ()
-  "Test whether our 'standard query' works as expected."
-  (ert-with-message-capture msgs
-    (with-test-mairix 
-     ;; you'd think the word lisp would'be mentioned more than just 232 times in
-     ;; one month on emacs-devel, huh?
-     (mairix-search "lisp" t))
-    (should (cl-search "Matched 232 messages" msgs))))
-
 (defmacro with-test-mairix (&rest body)
   `(unwind-protect
        (progn
@@ -76,5 +61,19 @@
        (when (file-exists-p file)
          (message "Deleting file %s." file)
          (delete-file file)))))
+
+(ert-deftest test-implementation-override ()
+  "Test whether implementation override works correctly."
+  (let ((mairix-mail-program 'foobar))
+    (eql 'foobar (counsel-mairix-determine-frontend))))
+
+(ert-deftest test-baseline-mairix-search ()
+  "Test whether our 'standard query' works as expected."
+  (ert-with-message-capture msgs
+    (with-test-mairix 
+     ;; you'd think the word lisp would'be mentioned more than just 232 times in
+     ;; one month on emacs-devel, huh?
+     (mairix-search "lisp" t))
+    (should (cl-search "Matched 232 messages" msgs))))
 
 ;;; counsel-mairix-tests.el ends here.
