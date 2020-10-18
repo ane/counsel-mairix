@@ -25,8 +25,10 @@
 
 ;;; Commentary:
 
-;; counsel-mairix is an counsel interface for mairix.  Invoke `counsel-mairix' to start
-;; a search with an counsel interface.
+;; counsel-mairix is an ivy interface for mairix.  Invoke `counsel-mairix' to
+;; start a search with an ivy interface.  counsel-mairix builds upon the
+;; built-in mairix support in Emacs, adding a fast interactive searching
+;; mechanism using the ivy completion engine.
 
 ;;; Code:
 (require 'cl-lib)
@@ -38,7 +40,8 @@
 ;; Custom stuff.
 (defgroup counsel-mairix nil
   "Options for counsel-mairix."
-  :group :mail)
+  :group :mail
+  :prefix "counsel-mairix-")
 
 (defcustom counsel-mairix-mail-frontend nil
   "Mail program to display search results.
@@ -51,10 +54,22 @@ the frontend set here."
 		 (const :tag "VM" vm))
   :group 'counsel-mairix)
 
+(defcustom counsel-mairix-include-threads 'prompt
+  "Whether to prompt the user for including threads in the Mairix search.
+
+If set to 'prompt, prompt the user.  If set to 'always, always
+include threads.  If set to 'never, never prompt for threads."
+  :type '(choice (const :tag "Prompt" prompt)
+                 (const :tag "Always" t)
+                 (const :tag "Never" nil))
+  :group 'counsel-mairix)
+
 
 ;; Generic methods that form the backbone of the search mechanism.
-(cl-defgeneric counsel-mairix-run-search (frontend search-string)
-  "Run Mairix with the search string SEARCH-STRING using FRONTEND.")
+(cl-defgeneric counsel-mairix-run-search (frontend search-string threads)
+  "Run Mairix with the search string SEARCH-STRING using FRONTEND.
+
+Include threads in the result if THREADS is non-nil.")
 
 (cl-defgeneric counsel-mairix-display-result-message (message)
   "Display MESSAGE using the right frontend.")
@@ -76,21 +91,21 @@ the frontend set here."
   "A Mairix result entry to be displayed in Rmail."
   mbox-file msgnum)
 
-(cl-defmethod counsel-mairix-run-search ((frontend (eql rmail)) search-string)
+(cl-defmethod counsel-mairix-run-search ((frontend (eql rmail)) search-string threads)
   "Perform a Mairix search using SEARCH-STRING using Rmail as the displaying FRONTEND."
   (let ((config (current-window-configuration))
         (search-file (counsel-mairix-search-file))
+        (large-file-warning-threshold nil)
+        (rmail-display-summary t)
         sumbuf rmailbuf)
     (progn
       (save-excursion
-        (mairix-call-mairix search-string nil nil)
+        (mairix-call-mairix search-string nil threads)
         ;; The search mbox might be open somewhere. Close it,
         ;; because its contents will change.
-        (let ((searchbuffer (find-buffer-visiting search-file)))
-          (when searchbuffer
-            (kill-buffer searchbuffer)))
-        (rmail-input search-file)
-        (rmail-summary)
+        (when-let ((searchbuffer (find-buffer-visiting search-file)))
+          (kill-buffer searchbuffer))
+        (rmail search-file)
         (with-current-buffer rmail-buffer
           (setq rmailbuf rmail-buffer)
           (setq sumbuf rmail-summary-buffer)))
@@ -114,6 +129,7 @@ the frontend set here."
            (seq-remove #'string-empty-p results)))))))
 
 (cl-defmethod counsel-mairix-display-result-message ((result counsel-mairix-rmail-result))
+  "Display RESULT using Rmail."
   (rmail (counsel-mairix-rmail-result-mbox-file result))
   (rmail-show-message (counsel-mairix-rmail-result-msgnum result)))
 
@@ -122,12 +138,16 @@ the frontend set here."
 ;; TODO...
 
 
+;; VM implementation of the generic methods.
+;; TODO...
+
+
 ;; The main implementation.
 
 (defun counsel-mairix-do-search (str)
   "Either wait for more chars using `ivy-more-chars' or perform the search using STR after determining the correct search backend."
   (or (ivy-more-chars)
-      (counsel-mairix-run-search (counsel-mairix-determine-frontend) str)
+      (counsel-mairix-run-search (counsel-mairix-determine-frontend) str counsel-mairix-include-threads)
       '("" "Searching...")))
 
 (cl-defmethod counsel-mairix-display-result-message ((result string))
@@ -137,22 +157,31 @@ the frontend set here."
 
 
 ;;;###autoload
-(defun counsel-mairix (&optional initial-input)
+(defun counsel-mairix (&optional threads)
   "Search using Mairix with an Counsel frontend.
 It will determine the correct backend automatically based on the variable
 `mairix-mail-program', this can be overridden using
 `counsel-mairix-mail-frontend'.
 
-counsel-mairix should support the same backends as mairix itself,
+'counsel-mairix' should support the same backends as mairix itself,
 which are known to be Rmail (default), Gnus and VM. Currently
-only Rmail is supported."
-  (interactive)
-  (ivy-read "Mairix query: " #'counsel-mairix-do-search
-            :initial-input initial-input
-            :dynamic-collection t
-            :action #'counsel-mairix-display-result-message
-            :history 'counsel-mairix-history
-            :caller 'counsel-mairix))
+only Rmail is supported.
+
+If `counsel-mairix-include-threads' is nil, don't include threads
+when searching with Mairix.  If it is t, always include
+threads. If it is prompt (the default), ask whether to include
+threads or not."
+  (interactive
+   (list
+    (if (eq 'prompt counsel-mairix-include-threads)
+        (y-or-n-p "Include threads? ")
+      counsel-mairix-include-threads)))
+  (let ((counsel-mairix-include-threads threads))
+    (ivy-read "Mairix query: " #'counsel-mairix-do-search
+              :dynamic-collection t
+              :action #'counsel-mairix-display-result-message
+              :history 'counsel-mairix-history
+              :caller 'counsel-mairix)))
 
 (provide 'counsel-mairix)
 

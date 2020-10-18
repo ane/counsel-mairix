@@ -70,6 +70,17 @@ It defaults to the value of `mairix-mail-program`.
 
 This would force counsel-mairix to use Rmail for displaying the search buffer.
 
+### Custom variable: `counsel-mairix-include-threads`
+
+Whether to prompt for including threads in the Mairix search. Mairix.el defaults
+to querying every time, but I found this behaviour annoying.
+
+Set it to
+
+  * `'prompt` to ask every time (the default)
+  * `t` to always include threads
+  * `nil` to never include threads.
+
 ## TODO stuff (if you feel like contributing)
 
   * support for threads (i.e. the prefix arg on `counsel-mairix`)

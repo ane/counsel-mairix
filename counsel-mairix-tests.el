@@ -25,14 +25,56 @@
 
 ;;; Commentary:
 
-;; tests for counsel-mairix.
+;; Tests for counsel-mairix.  The ivy- bits are copyright (c) 2015-2019 Oleh
+;; Krehel.
 
 ;;; Code:
 (require 'ert)
 (require 'ert-x)
 (require 'seq)
 (require 'mairix)
+(require 'counsel-mairix)
 
+
+;;; From https://github.com/abo-abo/swiper/blob/master/ivy-test.el
+(defvar ivy-expr nil
+  "Holds a test expression to evaluate with `ivy-eval'.")
+
+(defvar ivy-result nil
+  "Holds the eval result of `ivy-expr' by `ivy-eval'.")
+
+(defvar ivy-eval-dir nil
+  "Hold the `default-directory' value to be used by `ivy-eval'.
+Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
+
+(defun ivy-eval ()
+  "Evaluate `ivy-expr'."
+  (interactive)
+  (let ((default-directory (or ivy-eval-dir default-directory)))
+    (setq ivy-result (eval ivy-expr))))
+
+(global-set-key (kbd "C-c e") 'ivy-eval)
+
+(defvar ivy-test-inhibit-message t)
+
+(cl-defun ivy-with (expr keys &key dir)
+  "Evaluate EXPR followed by KEYS."
+  (let ((ivy-expr expr)
+        (inhibit-message ivy-test-inhibit-message)
+        (buf (current-buffer)))
+    (save-window-excursion
+      (unwind-protect
+          (progn
+            (when dir
+              (setq dir (expand-file-name dir)))
+            (setq ivy-eval-dir dir)
+            (execute-kbd-macro
+             (vconcat (kbd "C-c e")
+                      (kbd keys))))
+        (switch-to-buffer buf)))
+    ivy-result))
+
+
 ;;; Some basic tests to ensure mairix is working correctly.
 (ert-deftest test-mairix-presence ()
   "Test whether mairix is installed on the system."
@@ -49,6 +91,8 @@
     (let ((mairix-mail-program impl))
       (should (eql impl (counsel-mairix-determine-frontend))))))
 
+
+;;; Test fixtures and the like.
 (defmacro with-test-mairix (&rest body)
   `(unwind-protect
        (progn
@@ -62,6 +106,7 @@
          (message "Deleting file %s." file)
          (delete-file file)))))
 
+
 (ert-deftest test-implementation-override ()
   "Test whether implementation override works correctly."
   (let ((mairix-mail-program 'foobar))
@@ -75,6 +120,32 @@
      ;; one month on emacs-devel, huh?
      (mairix-search "lisp" t))
     (should (cl-search "Matched 187 messages" msgs))))
+
+
+
+(ert-deftest test-counsel-mairix-threads-customization ()
+  "Test whether changing `counsel-mairix-include-threads' affects the behavior
+of `counsel-mairix'."
+  (with-test-mairix
+   (let ((counsel-mairix-include-threads nil))
+     (let ((result (ivy-with '(call-interactively 'counsel-mairix) "melpa")))
+       (should (equal 74 (seq-length result)))
+       (should (cl-search "pogonyshev" result))))
+   (let ((counsel-mairix-include-threads t))
+     (let ((result (ivy-with '(call-interactively 'counsel-mairix) "elpa")))
+       (should (equal 81 (seq-length result)))
+       (should (cl-search "monnier" result))))))
+
+(ert-deftest test-counsel-mairix-prompt-answer ()
+  "Test whether the answering y or n at the prompt actually does anything."
+  (with-test-mairix
+   (let* ((searchable (if noninteractive " C-m lisp" "lisp"))
+          (yes (concat "y" searchable))
+          (no  (concat "n" searchable))
+          (counsel-mairix-include-threads 'prompt)
+          (ivy-test-inhibit-message nil))
+     (should (equal 88  (seq-length (ivy-with '(call-interactively 'counsel-mairix) no))))
+     (should (equal 109 (seq-length (ivy-with '(call-interactively 'counsel-mairix) yes)))))))
 
 ;;; counsel-mairix-tests.el ends here.
 
