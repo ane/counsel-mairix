@@ -101,10 +101,8 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
            ,@body))
      (when-let (k (get-buffer "test.mbox"))
        (kill-buffer k))
-     (dolist (file (list "tests/mairixdb" "test.mbox"))
-       (when (file-exists-p file)
-         (message "Deleting file %s." file)
-         (delete-file file)))))
+     (when (file-exists-p "test.mbox")
+       (delete-file file))))
 
 
 (ert-deftest test-implementation-override ()
