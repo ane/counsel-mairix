@@ -130,8 +130,9 @@ Include threads in the result if THREADS is non-nil.")
 
 (cl-defmethod counsel-mairix-display-result-message ((result counsel-mairix-rmail-result))
   "Display RESULT using Rmail."
-  (rmail (counsel-mairix-rmail-result-mbox-file result))
-  (rmail-show-message (counsel-mairix-rmail-result-msgnum result)))
+  (let ((large-file-warning-threshold nil))
+    (rmail (counsel-mairix-rmail-result-mbox-file result))
+    (rmail-show-message (counsel-mairix-rmail-result-msgnum result))))
 
 
 ;; Gnus implementation of the generic methods.

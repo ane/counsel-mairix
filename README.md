@@ -1,4 +1,5 @@
 # counsel-mairix, an Ivy interface for the Mairix mail indexing program
+[![builds.sr.ht status](https://builds.sr.ht/~ane/counsel-mairix.svg)](https://builds.sr.ht/~ane/counsel-mairix?)
 
 counsel-mairix is an [Ivy](https://github.com/abo-abo/swiper) interface for rapidly going through [Mairix](https://github.com/vandry/mairix) search
 results. By default, Mairix works by saving the search results into a separate
