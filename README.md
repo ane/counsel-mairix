@@ -50,6 +50,17 @@ For example, if you use Mairix with Mbox format results, configure it like this:
 (setq mairix-search-file "search.mbox") ;; Name of the search file itself
 ```
 
+## Functionality
+
+The table below lists a summary of the functions in counsel-mairix.  Please
+refer to their documentation in Emacs for more information.
+
+| Function                     | Description                                                     |
+|:-----------------------------|:----------------------------------------------------------------|
+| `counsel-mairix`             | Run mairix queries interactively                                |
+| `counsel-mairix-save-search` | Save your searches from your previous `counsel-mairix` searches |
+
+
 ## Customization
 
 counsel-mairix defines the following customization variables:

@@ -82,7 +82,7 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
 
 (ert-deftest test-packages ()
   "Test whether counsel and mairix are installed."
-  (should (and (featurep 'counsel)
+  (should (and (featurep 'ivy)
                (featurep 'mairix))))
 
 (ert-deftest test-implementation-detection ()
@@ -94,6 +94,7 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
 
 ;;; Test fixtures and the like.
 (defmacro with-test-mairix (&rest body)
+  (declare (indent 0) (debug t))
   `(unwind-protect
        (progn
          (let ((mairix-command (format "mairix -f tests/mairixrc"))
@@ -114,9 +115,9 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
   "Test whether our 'standard query' works as expected."
   (ert-with-message-capture msgs
     (with-test-mairix
-     ;; you'd think the word 'lisp' would'be mentioned more than just 187 times in
-     ;; one month on emacs-devel, huh?
-     (mairix-search "lisp" t))
+      ;; you'd think the word 'lisp' would'be mentioned more than just 187 times in
+      ;; one month on emacs-devel, huh?
+      (mairix-search "lisp" t))
     (should (cl-search "Matched 187 messages" msgs))))
 
 
@@ -125,25 +126,41 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
   "Test whether changing `counsel-mairix-include-threads' affects the behavior
 of `counsel-mairix'."
   (with-test-mairix
-   (let ((counsel-mairix-include-threads nil))
-     (let ((result (ivy-with '(call-interactively 'counsel-mairix) "melpa")))
-       (should (equal 74 (seq-length result)))
-       (should (cl-search "pogonyshev" result))))
-   (let ((counsel-mairix-include-threads t))
-     (let ((result (ivy-with '(call-interactively 'counsel-mairix) "elpa")))
-       (should (equal 81 (seq-length result)))
-       (should (cl-search "monnier" result))))))
+    (let ((counsel-mairix-include-threads nil))
+      (let ((result (ivy-with '(call-interactively 'counsel-mairix) "melpa")))
+        (should (equal 74 (seq-length result)))
+        (should (cl-search "pogonyshev" result))))
+    (let ((counsel-mairix-include-threads t))
+      (let ((result (ivy-with '(call-interactively 'counsel-mairix) "elpa")))
+        (should (equal 81 (seq-length result)))
+        (should (cl-search "monnier" result))))))
 
 (ert-deftest test-counsel-mairix-prompt-answer ()
   "Test whether the answering y or n at the prompt actually does anything."
   (with-test-mairix
-   (let* ((searchable (if noninteractive " C-m lisp" "lisp"))
-          (yes (concat "y" searchable))
-          (no  (concat "n" searchable))
-          (counsel-mairix-include-threads 'prompt)
-          (ivy-test-inhibit-message nil))
-     (should (equal 88  (seq-length (ivy-with '(call-interactively 'counsel-mairix) no))))
-     (should (equal 109 (seq-length (ivy-with '(call-interactively 'counsel-mairix) yes)))))))
+    (let* ((searchable (if noninteractive " C-m lisp" "lisp"))
+           (yes (concat "y" searchable))
+           (no  (concat "n" searchable))
+           (counsel-mairix-include-threads 'prompt)
+           (ivy-test-inhibit-message nil))
+      (should (equal 88  (seq-length (ivy-with '(call-interactively 'counsel-mairix) no))))
+      (should (equal 109 (seq-length (ivy-with '(call-interactively 'counsel-mairix) yes)))))))
+
+
+
+(ert-deftest test-counsel-mairix-history ()
+  (with-test-mairix
+    (let ((counsel-mairix-include-threads nil))
+      (ivy-with '(call-interactively 'counsel-mairix) "elpa C-m")
+      (ivy-with '(call-interactively 'counsel-mairix) "f:rms C-m")
+
+      (should (equal (ivy-with '(counsel-mairix-save-search) "C-m foo C-m y")
+                     "elpa"))
+      (should (equal (ivy-with '(counsel-mairix-save-search) "C-n C-m bar C-m y")
+                     "f:rms"))
+      ))
+  )
+
 
 ;;; counsel-mairix-tests.el ends here.
 

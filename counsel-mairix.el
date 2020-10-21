@@ -6,7 +6,7 @@
 ;; Created: 2020-10-10
 ;; Version: 0.1
 ;; Keywords: mail searching
-;; Package-Requires: ((emacs "26.1") (counsel "0.13.1"))
+;; Package-Requires: ((emacs "26.1") (ivy "0.13.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -29,12 +29,17 @@
 ;; start a search with an ivy interface.  counsel-mairix builds upon the
 ;; built-in mairix support in Emacs, adding a fast interactive searching
 ;; mechanism using the ivy completion engine.
+;;
+;; counsel-mairix provides the following functions:
+;;
+;;   * `counsel-mairix' - run mairix search interactively
+;;   * `counsel-mairix-save-search' - save a mairix search from your history
 
 ;;; Code:
 (require 'cl-lib)
 (require 'cl-generic)
 (require 'mairix)
-(require 'counsel)
+(require 'ivy)
 (require 'subr-x)
 
 
@@ -81,7 +86,7 @@ Include threads in the result if THREADS is non-nil.")
       mairix-mail-program))
 
 (defun counsel-mairix-search-file ()
-  "Get the full path to the Mairix search file as given by `mairix-file-path' and `mairix-search-file."
+  "Get the full path to the Mairix search file as given by `mairix-file-path' and `mairix-search-file'."
   (concat (file-name-as-directory (expand-file-name mairix-file-path))
           mairix-search-file))
 
@@ -94,40 +99,38 @@ Include threads in the result if THREADS is non-nil.")
 
 (cl-defmethod counsel-mairix-run-search ((frontend (eql rmail)) search-string threads)
   "Perform a Mairix search using SEARCH-STRING using Rmail as the displaying FRONTEND."
-  (let ((config (current-window-configuration))
-        (search-file (counsel-mairix-search-file))
+  (let ((search-file (counsel-mairix-search-file))
         (large-file-warning-threshold nil)
         (rmail-display-summary t)
-        sumbuf rmailbuf)
+        sumbuf rmailbuf results)
     (progn
-      (save-excursion
+      (save-window-excursion
         (mairix-call-mairix search-string nil threads)
         ;; The search mbox might be open somewhere. Close it,
         ;; because its contents will change.
         (when-let ((searchbuffer (find-buffer-visiting search-file)))
           (kill-buffer searchbuffer))
         (rmail search-file)
-        (with-current-buffer rmail-buffer
+        (with-current-buffer
+            rmail-buffer
           (setq rmailbuf rmail-buffer)
-          (setq sumbuf rmail-summary-buffer)))
-      (when (and rmailbuf sumbuf)
-        (let (results)
+          (setq sumbuf rmail-summary-buffer))
+        (when (and rmailbuf sumbuf)
           (with-current-buffer sumbuf
             (font-lock-ensure)
             (setq results (split-string (buffer-string) "\n")))
           (kill-buffer rmailbuf)
           ;; The summary buffer might still be open. Kill it.
           (when sumbuf
-            (kill-buffer sumbuf))
-          (set-window-configuration config)
-          (mapcar
-           (lambda (str)
-             (when-let ((num (string-to-number (substring str 0 6))))
-               ;; Counsel doesn't support rich results so we have to stuff things into
-               ;; text properties.
-               (propertize str 'result (make-counsel-mairix-rmail-result :msgnum num :mbox-file search-file))
-               ))
-           (seq-remove #'string-empty-p results)))))))
+            (kill-buffer sumbuf))))
+      (mapcar
+       (lambda (str)
+         (when-let ((num (string-to-number (substring str 0 6)))
+                    (res (make-counsel-mairix-rmail-result :msgnum num :mbox-file search-file)))
+           ;; Counsel doesn't support rich results so we have to stuff things
+           ;; into text properties.
+           (propertize str 'result res)))
+       (seq-remove #'string-empty-p results)))))
 
 (cl-defmethod counsel-mairix-display-result-message ((result counsel-mairix-rmail-result))
   "Display RESULT using Rmail."
@@ -157,33 +160,70 @@ Include threads in the result if THREADS is non-nil.")
   (when-let (res (get-text-property 0 'result result))
     (counsel-mairix-display-result-message res)))
 
+(defvar counsel-mairix-save-search-history ()
+  "History for `counsel-mairix-save-search'.")
+
+(defun counsel-mairix-save-search-action (search)
+  "Save SEARCH as a Mairix search."
+  (let ((mairix-last-search search))
+    (mairix-save-search)))
+
+
+(defun counsel-mairix-save-search ()
+  "Save a search from the history of `counsel-mairix'.
+
+If `counsel-mairix-history' is empty, save `mairix-last-search'."
+  (interactive)
+  (when (and (not counsel-mairix-history)
+             (not mairix-last-search))
+    (user-error "No counsel-mairix history or last mairix search to save from"))
+  (let ((enable-recursive-minibuffers t))
+    (ivy-read "Save search: "
+              (or (seq-reverse (seq-filter
+                                (lambda (item)
+                                  (and (stringp item)
+                                       (get-text-property 0 'ivy-index item)))
+                                counsel-mairix-history))
+                  (list (car-safe mairix-last-search)))
+              :require-match t
+              :action #'counsel-mairix-save-search-action
+              :caller 'counsel-mairix-save-search
+              :history 'counsel-mairix-save-search-history)))
+
+(defvar counsel-mairix-history ()
+  "History for `counsel-mairix'.")
 
 ;;;###autoload
-(defun counsel-mairix (&optional threads)
+(defun counsel-mairix (&optional initial-input)
   "Search using Mairix with an Counsel frontend.
 It will determine the correct backend automatically based on the variable
 `mairix-mail-program', this can be overridden using
 `counsel-mairix-mail-frontend'.
 
 'counsel-mairix' should support the same backends as mairix itself,
-which are known to be Rmail (default), Gnus and VM. Currently
+which are known to be Rmail (default), Gnus and VM.  Currently
 only Rmail is supported.
 
 If `counsel-mairix-include-threads' is nil, don't include threads
 when searching with Mairix.  If it is t, always include
-threads. If it is prompt (the default), ask whether to include
-threads or not."
-  (interactive
-   (list
-    (if (eq 'prompt counsel-mairix-include-threads)
-        (y-or-n-p "Include threads? ")
-      counsel-mairix-include-threads)))
-  (let ((counsel-mairix-include-threads threads))
+threads.  If it is prompt (the default), ask whether to include
+threads or not.
+
+If INITIAL-INPUT is given, the search has that as the initial input."
+  (interactive)
+  (let ((counsel-mairix-include-threads (if (eq 'prompt counsel-mairix-include-threads)
+                                            (y-or-n-p "Include threads? ")
+                                          counsel-mairix-include-threads))
+        
+        (enable-recursive-minibuffers t))
     (ivy-read "Mairix query: " #'counsel-mairix-do-search
               :dynamic-collection t
+              :initial-input initial-input
               :action #'counsel-mairix-display-result-message
               :history 'counsel-mairix-history
               :caller 'counsel-mairix)))
+
+
 
 (provide 'counsel-mairix)
 
