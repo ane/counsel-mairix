@@ -35,6 +35,7 @@
 (require 'cl-generic)
 (require 'mairix)
 (require 'counsel)
+(require 'subr-x)
 
 
 ;; Custom stuff.
