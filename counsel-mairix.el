@@ -5,8 +5,8 @@
 ;; Author: Antoine Kalmbach <ane@iki.fi>
 ;; Created: 2020-10-10
 ;; Version: 0.1
-;; Keywords: mail searching
-;; Package-Requires: ((emacs "26.1") (ivy "0.13.1"))
+;; Keywords: mail
+;; Package-Requires: ((emacs "26.3") (ivy "0.13.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -41,6 +41,7 @@
 (require 'mairix)
 (require 'ivy)
 (require 'subr-x)
+(require 'seq)
 
 
 ;; Custom stuff.
@@ -97,8 +98,11 @@ Include threads in the result if THREADS is non-nil.")
   "A Mairix result entry to be displayed in Rmail."
   mbox-file msgnum)
 
-(cl-defmethod counsel-mairix-run-search ((frontend (eql rmail)) search-string threads)
-  "Perform a Mairix search using SEARCH-STRING using Rmail as the displaying FRONTEND."
+(cl-defmethod counsel-mairix-run-search ((_ (eql rmail)) search-string threads)
+  "Perform a Mairix search using SEARCH-STRING using Rmail.
+
+If THREADS is non-nil, include threads."
+  (require 'rmail)
   (let ((search-file (counsel-mairix-search-file))
         (large-file-warning-threshold nil)
         (rmail-display-summary t)
@@ -134,6 +138,7 @@ Include threads in the result if THREADS is non-nil.")
 
 (cl-defmethod counsel-mairix-display-result-message ((result counsel-mairix-rmail-result))
   "Display RESULT using Rmail."
+  (require 'rmail)
   (let ((large-file-warning-threshold nil))
     (rmail (counsel-mairix-rmail-result-mbox-file result))
     (rmail-show-message (counsel-mairix-rmail-result-msgnum result))))
@@ -168,6 +173,8 @@ Include threads in the result if THREADS is non-nil.")
   (let ((mairix-last-search search))
     (mairix-save-search)))
 
+(defvar counsel-mairix-history ()
+  "History for `counsel-mairix'.")
 
 (defun counsel-mairix-save-search ()
   "Save a search from the history of `counsel-mairix'.
@@ -189,9 +196,6 @@ If `counsel-mairix-history' is empty, save `mairix-last-search'."
               :action #'counsel-mairix-save-search-action
               :caller 'counsel-mairix-save-search
               :history 'counsel-mairix-save-search-history)))
-
-(defvar counsel-mairix-history ()
-  "History for `counsel-mairix'.")
 
 ;;;###autoload
 (defun counsel-mairix (&optional initial-input)

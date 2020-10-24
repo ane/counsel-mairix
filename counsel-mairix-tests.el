@@ -122,6 +122,7 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
 
 
 
+
 (ert-deftest test-counsel-mairix-threads-customization ()
   "Test whether changing `counsel-mairix-include-threads' affects the behavior
 of `counsel-mairix'."
@@ -157,9 +158,7 @@ of `counsel-mairix'."
       (should (equal (ivy-with '(counsel-mairix-save-search) "C-m foo C-m y")
                      "elpa"))
       (should (equal (ivy-with '(counsel-mairix-save-search) "C-n C-m bar C-m y")
-                     "f:rms"))
-      ))
-  )
+                     "f:rms")))))
 
 
 ;;; counsel-mairix-tests.el ends here.
