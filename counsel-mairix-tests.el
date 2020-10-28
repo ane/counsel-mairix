@@ -6,7 +6,7 @@
 ;; Created: 2020-10-10
 ;; Version: 0.1
 ;; Keywords: mail searching
-;; Package-Requires: ((emacs "26.1") (counsel "0.13.1"))
+;; Package-Requires: ((emacs "26.1") (ivy "0.13.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -74,6 +74,18 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
         (switch-to-buffer buf)))
     ivy-result))
 
+(defun ivy-input (expr keys)
+  "Return `ivy-text' after inputing KEYS."
+  (let ((ivy-expr expr)
+        (buf (current-buffer)))
+    (save-window-excursion
+      (unwind-protect
+          (execute-kbd-macro
+           (vconcat (kbd "C-c e")
+                    (kbd keys)))
+        (switch-to-buffer buf)))
+    ivy-text))
+
 
 ;;; Some basic tests to ensure mairix is working correctly.
 (ert-deftest test-mairix-presence ()
@@ -95,15 +107,18 @@ Since `execute-kbd-macro' doesn't pick up a let-bound `default-directory'.")
 ;;; Test fixtures and the like.
 (defmacro with-test-mairix (&rest body)
   (declare (indent 0) (debug t))
-  `(unwind-protect
-       (progn
-         (let ((mairix-command (format "mairix -f tests/mairixrc"))
-               (mairix-search-file "test.mbox"))
-           ,@body))
-     (when-let (k (get-buffer "test.mbox"))
-       (kill-buffer k))
-     (when (file-exists-p "test.mbox")
-       (delete-file file))))
+  `(let ((saved mairix-saved-searches))
+     (unwind-protect
+         (progn
+           (let ((counsel-mairix-include-threads t)
+                 (mairix-command (format "mairix -f %s" (expand-file-name "tests/mairixrc")))
+                 (mairix-search-file "test.mbox"))
+             ,@body))
+       (when-let (k (get-buffer "test.mbox"))
+         (kill-buffer k))
+       (when (file-exists-p "test.mbox")
+         (delete-file file))
+       (setq mairix-saved-searches saved))))
 
 
 (ert-deftest test-implementation-override ()
@@ -143,15 +158,18 @@ of `counsel-mairix'."
            (yes (concat "y" searchable))
            (no  (concat "n" searchable))
            (counsel-mairix-include-threads 'prompt)
-           (ivy-test-inhibit-message nil))
+           (ivy-test-inhibit-message t))
       (should (equal 88  (seq-length (ivy-with '(call-interactively 'counsel-mairix) no))))
       (should (equal 109 (seq-length (ivy-with '(call-interactively 'counsel-mairix) yes)))))))
 
 
 
 (ert-deftest test-counsel-mairix-history ()
+  "Test calling `counsel-mairix-save-search' should prompt for
+the recently used searches."
   (with-test-mairix
-    (let ((counsel-mairix-include-threads nil))
+    (let ((counsel-mairix-include-threads nil)
+          (counsel-mairix-history nil))
       (ivy-with '(call-interactively 'counsel-mairix) "elpa C-m")
       (ivy-with '(call-interactively 'counsel-mairix) "f:rms C-m")
 
@@ -160,9 +178,59 @@ of `counsel-mairix'."
       (should (equal (ivy-with '(counsel-mairix-save-search) "C-n C-m bar C-m y")
                      "f:rms")))))
 
+(ert-deftest test-counsel-mairix-yanking ()
+  (with-test-mairix
+    (save-window-excursion
+      (rmail "./tests/feb-2020-emacs-devel.mbox")
+      (let ((from (mail-strip-quoted-names (rmail-get-header "from")))
+            (to   (mail-strip-quoted-names (rmail-get-header "to")))
+            (mid  (mail-strip-quoted-names (rmail-get-header "message-id"))))
+        (should (string= from "rms@gnu.org"))
+        (should (string= to "lg.zevlg@gmail.com"))
+        (should (string= mid "E1j8FZ0-0004sb-I6@fencepost.gnu.org"))
 
-;;; counsel-mairix-tests.el ends here.
+        (should (equal from (counsel-mairix--get-field "from")))
+        (should (equal to (counsel-mairix--get-field "to")))
+        (should (equal mid (counsel-mairix--get-field "message-id")))
+
+        (should (equal (ivy-input '(counsel-mairix) "C-c C-f f")
+                       "f:rms@gnu.org"))
+        (should (equal (ivy-input '(counsel-mairix) "C-c C-f t")
+                       "t:lg.zevlg@gmail.com"))
+        (should (equal (ivy-input '(counsel-mairix) "C-c C-f i")
+                       "m:E1j8FZ0-0004sb-I6@fencepost.gnu.org"))))))
+
+(ert-deftest test-counsel-mairix-insert-saved-searches ()
+  (with-test-mairix
+    (let ((mairix-saved-searches '(("a" . "s:elpa") ("b" . "f:rms@gnu.org"))))
+      (should (equal (ivy-input '(call-interactively 'counsel-mairix)
+                                "s:elpa")
+                     "s:elpa"))
+      (should (equal (ivy-input '(call-interactively 'counsel-mairix)
+                                "f:rms@gnu.org")
+                     "f:rms@gnu.org")))))
+
+(ert-deftest test-counsel-mairix-save-current-search ()
+  (with-test-mairix
+    (let ((mairix-saved-searches nil))
+      (ivy-with '(counsel-mairix) "s:elpa C-c C-s s foo C-m y")
+      (should (equal '(("foo" . "s:elpa")) mairix-saved-searches)))))
+
+(ert-deftest test-counsel-mairix-search-from ()
+  (with-test-mairix
+    (rmail "./tests/feb-2020-emacs-devel.mbox")
+    (should (equal (ivy-input '(call-interactively 'counsel-mairix-search-from) "")
+                   "f:rms@gnu.org"))))
+
+(ert-deftest test-counsel-mairix-search-thread ()
+  (with-test-mairix
+    (rmail "./tests/feb-2020-emacs-devel.mbox")
+    (should (equal (ivy-input '(call-interactively 'counsel-mairix-search-thread) "")
+                   "m:E1j8FZ0-0004sb-I6@fencepost.gnu.org"))))
 
 ;; Local Variables:
 ;; checkdoc-force-docstrings-flag: nil
 ;; End:
+
+(provide 'counsel-mairix-tests)
+;;; counsel-mairix-tests.el ends here.

@@ -186,16 +186,104 @@ If `counsel-mairix-history' is empty, save `mairix-last-search'."
     (user-error "No counsel-mairix history or last mairix search to save from"))
   (let ((enable-recursive-minibuffers t))
     (ivy-read "Save search: "
-              (or (seq-reverse (seq-filter
-                                (lambda (item)
-                                  (and (stringp item)
-                                       (get-text-property 0 'ivy-index item)))
-                                counsel-mairix-history))
+              (or (seq-reverse
+                   (mapcar #'substring-no-properties
+                           (seq-filter
+                            (lambda (item)
+                              (and (stringp item)
+                                   (get-text-property 0 'ivy-index item)))
+                            counsel-mairix-history)))
                   (list (car-safe mairix-last-search)))
               :require-match t
               :action #'counsel-mairix-save-search-action
               :caller 'counsel-mairix-save-search
               :history 'counsel-mairix-save-search-history)))
+
+(defun counsel-mairix--get-field (field)
+  "Return the header FIELD from the current message."
+  (let ((get-mail-header
+         (cadr (assq (counsel-mairix-determine-frontend)
+                     mairix-get-mail-header-functions))))
+    (if get-mail-header
+        (mail-strip-quoted-names
+         (funcall get-mail-header field))
+      (error "No function for getting headers"))))
+
+(defun counsel-mairix--ivy-yank-field (format field &optional process)
+  "Use `with-ivy-window' to get FIELD from the current message.
+
+The value of the field is formated using FORMAT and inserted into
+the minibuffer.
+
+If PROCESS is given, apply that function to the field value
+before formating it."
+  (let (from)
+    (with-ivy-window
+      (setq from (counsel-mairix--get-field field)))
+    (when from
+      (insert (format format (if process
+                                 (funcall process from)
+                               from))))))
+
+(defun counsel-mairix-insert-from ()
+  "Insert the `From:' field of a mail message into the minibuffer."
+  (interactive)
+  (counsel-mairix--ivy-yank-field "f:%s" "from"))
+
+(defun counsel-mairix-insert-to ()
+  "Insert the `Subject:' field of a mail message into the minibuffer."
+  (interactive)
+  (counsel-mairix--ivy-yank-field "t:%s" "to"))
+
+(defun counsel-mairix-insert-subject ()
+  "Insert the `Subject:' field of a mail message into the minibuffer."
+  (interactive)
+  (counsel-mairix--ivy-yank-field "s:%s" "subject"))
+
+(defun counsel-mairix-insert-message-id ()
+  "Insert the `Message-Id:' field of a mail message into the minibuffer."
+  (interactive)
+  (counsel-mairix--ivy-yank-field "m:%s" "message-id"))
+
+(defun counsel-mairix-toggle-threads ()
+  "Toggle threading on or off in the current search."
+  (interactive)
+  (let ((threads (if (eq 'prompt counsel-mairix-include-threads)
+                     t
+                   (not counsel-mairix-include-threads))))
+    (setq-local counsel-mairix-include-threads threads)
+    (ivy--reset-state ivy-last)))
+
+(defun counsel-mairix-save-current-search ()
+  "Save the current search, prompting for its name."
+  (interactive)
+  (let ((enable-recursive-minibuffers t)
+        (prev mairix-last-search))
+    (unwind-protect
+        (let ((mairix-last-search ivy-text))
+          (mairix-save-search))
+      (setq prev mairix-last-search))))
+
+(defun counsel-mairix-insert-saved-search ()
+  "Insert a saved mairix search."
+  (interactive)
+  (let ((enable-recursive-minibuffers t)
+        (searches (mapcar 'cdr mairix-saved-searches)))
+    (insert (completing-read "Insert Mairix search: "
+                             searches
+                             nil t))))
+
+(defvar counsel-mairix-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-f f") 'counsel-mairix-insert-from)
+    (define-key map (kbd "C-c C-f t") 'counsel-mairix-insert-to)
+    (define-key map (kbd "C-c C-f i") 'counsel-mairix-insert-message-id)
+    (define-key map (kbd "C-c C-f s") 'counsel-mairix-insert-subject)
+    (define-key map (kbd "C-c C-t")   'counsel-mairix-toggle-threads)
+    (define-key map (kbd "C-c C-s s") 'counsel-mairix-save-current-search)
+    (define-key map (kbd "C-c C-s i") 'counsel-mairix-insert-saved-search)
+    map)
+  "Keymap for `counsel-mairix'.")
 
 ;;;###autoload
 (defun counsel-mairix (&optional initial-input)
@@ -215,19 +303,30 @@ threads or not.
 
 If INITIAL-INPUT is given, the search has that as the initial input."
   (interactive)
-  (let ((counsel-mairix-include-threads (if (eq 'prompt counsel-mairix-include-threads)
-                                            (y-or-n-p "Include threads? ")
-                                          counsel-mairix-include-threads))
-        
+  (let ((counsel-mairix-include-threads
+         (if (eq 'prompt counsel-mairix-include-threads)
+             (y-or-n-p "Include threads? ")
+           counsel-mairix-include-threads))
         (enable-recursive-minibuffers t))
     (ivy-read "Mairix query: " #'counsel-mairix-do-search
               :dynamic-collection t
               :initial-input initial-input
               :action #'counsel-mairix-display-result-message
+              :keymap counsel-mairix-map
               :history 'counsel-mairix-history
               :caller 'counsel-mairix)))
 
+(defun counsel-mairix-search-from ()
+  "Run `counsel-mairix' with the `From' header as the initial input."
+  (interactive)
+  (counsel-mairix
+   (format "f:%s" (counsel-mairix--get-field "from"))))
 
+(defun counsel-mairix-search-thread ()
+  "Run `counsel-mairix' with the `Message-Id' header, with threading."
+  (interactive)
+  (let ((counsel-mairix-include-threads t))
+    (counsel-mairix (format "m:%s" (counsel-mairix--get-field "message-id")))))
 
 (provide 'counsel-mairix)
 
