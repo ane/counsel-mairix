@@ -1,17 +1,11 @@
-# counsel-mairix, an Ivy interface for the Mairix mail indexing program
+# counsel-mairix - fast, real-time email searching in the minibuffer
 [![builds.sr.ht status](https://builds.sr.ht/~ane/counsel-mairix.svg)](https://builds.sr.ht/~ane/counsel-mairix?)
 
 counsel-mairix is an [Ivy](https://github.com/abo-abo/swiper) interface for rapidly going through [Mairix](https://github.com/vandry/mairix) search
-results. It lets you search your emails interactively in the minibuffer, results
-update as you type. Additionally, if you're looking at an email, you can quickly
-insert search terms based on the email. Key features of counsel-mairix are:
-
-  * **Fast interactive searching**. Mairix is really fast, and the results update
-    nearly instantly.
-  * **Refining your search**. You can quickly insert relevant bits of messages to
-    become part of the search string.
-  * **Simplicity**. Mairix is really [really easy to configure](https://www.gnu.org/software/emacs/manual/html_node/mairix-el/Configuring-mairix.html), and Emacs has
-    [built-in support for it](https://www.gnu.org/software/emacs/manual/html_node/mairix-el/index.html). 
+results.  Mairix is a very fast mail searching program.  Combining it with an
+ivy completion interface, you can search your emails interactively in the
+minibuffer, results update as you type. Additionally, if you're looking at an
+email, you can quickly insert search terms based on the email.
 
 By default, Mairix works by saving the search results into a separate
 file, like a unix [Mbox](https://en.wikipedia.org/wiki/Mbox) file, and then you point your email program to that file
