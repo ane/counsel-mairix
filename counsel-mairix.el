@@ -209,11 +209,21 @@ If `counsel-mairix-history' is empty, save `mairix-last-search'."
          (funcall get-mail-header field))
       (error "No function for getting headers"))))
 
-(defun counsel-mairix--ivy-yank-field (format field &optional process)
+
+(defun counsel-mairix--insert-pattern (pattern new)
+  "If we can see PATTERN behind us, add to it.
+
+Unless NEW non-nil, then insert a new pattern."
+  (if (not new)
+      (if (save-excursion
+            (re-search-backward (regexp-quote pattern) nil t))
+          (insert ","))
+    (insert pattern)))
+
+(defun counsel-mairix--ivy-yank-field (pattern field new &optional process)
   "Use `with-ivy-window' to get FIELD from the current message.
 
-The value of the field is formated using FORMAT and inserted into
-the minibuffer.
+If prefix argument is given, insert search PATTERN before the data.
 
 If PROCESS is given, apply that function to the field value
 before formating it."
@@ -221,29 +231,32 @@ before formating it."
     (with-ivy-window
       (setq from (counsel-mairix--get-field field)))
     (when from
-      (insert (format format (if process
-                                 (funcall process from)
-                               from))))))
+      (counsel-mairix--insert-pattern pattern new)
+      (when (= -1 (prefix-numeric-value current-prefix-arg))
+        (insert "~"))
+      (insert (if process
+                  (funcall process from)
+                from)))))
 
-(defun counsel-mairix-insert-from ()
+(defun counsel-mairix-insert-from (new)
   "Insert the `From:' field of a mail message into the minibuffer."
-  (interactive)
-  (counsel-mairix--ivy-yank-field "f:%s" "from"))
+  (interactive "P")
+  (counsel-mairix--ivy-yank-field "f:" "from" new))
 
-(defun counsel-mairix-insert-to ()
+(defun counsel-mairix-insert-to (new)
   "Insert the `Subject:' field of a mail message into the minibuffer."
-  (interactive)
-  (counsel-mairix--ivy-yank-field "t:%s" "to"))
+  (interactive "P")
+  (counsel-mairix--ivy-yank-field "t:" "to" new))
 
-(defun counsel-mairix-insert-subject ()
+(defun counsel-mairix-insert-subject (new)
   "Insert the `Subject:' field of a mail message into the minibuffer."
-  (interactive)
-  (counsel-mairix--ivy-yank-field "s:%s" "subject"))
+  (interactive "P")
+  (counsel-mairix--ivy-yank-field "s:" "subject" new))
 
-(defun counsel-mairix-insert-message-id ()
+(defun counsel-mairix-insert-message-id (new)
   "Insert the `Message-Id:' field of a mail message into the minibuffer."
-  (interactive)
-  (counsel-mairix--ivy-yank-field "m:%s" "message-id"))
+  (interactive "P")
+  (counsel-mairix--ivy-yank-field "m:" "message-id" new))
 
 (defun counsel-mairix-toggle-threads ()
   "Toggle threading on or off in the current search."
@@ -272,6 +285,147 @@ before formating it."
     (insert (completing-read "Insert Mairix search: "
                              searches
                              nil t))))
+
+;;; avy interface -- these features do nothing if avy isn't installed
+(defun counsel-mairix--field-bounds (field)
+  "Get the bounds for FIELD in the address.
+
+Returns the `(start . end)' of the data for the email field."
+  (let ((case-fold-search t)
+        (name (concat "^" (regexp-quote field) "[ \t]*:[ \t]*"))
+        start end)
+    (save-excursion
+      (save-restriction
+        (goto-char (point-min))
+        (when (re-search-forward name nil t)
+          (setq start (point))
+          (while (progn (forward-line 1)
+                        (looking-at "[ \t]")))
+          (forward-char -1)
+          (setq end (point)))))
+    (when (and start end)
+      (cons start end))))
+
+(defun counsel-mairix--avy-address (field)
+  "Present an avy jump tree for addresses in FIELD.
+
+Each tree leaf will return one email address selected by the user."
+  (let ((bounds (counsel-mairix--field-bounds field)))
+    (when (and bounds (consp bounds))
+      (let* ((start (car bounds)) (end (cdr bounds))
+             (addresses (buffer-substring-no-properties start end))
+             ;; FIXME is there a smarter way to do this?  This basically strips
+             ;; all names from the addresses, so you end up with foo@bar.com
+             ;; stuff, and we just find out where those addresses are.
+             (stripped (mail-strip-quoted-names addresses))
+             (addrs (split-string stripped ","))
+             cands)
+        (save-excursion
+          (save-restriction
+            (narrow-to-region start end)
+            (goto-char (point-min))
+            (dolist (addr addrs)
+              (when (re-search-forward
+                     (regexp-quote (string-trim addr)) nil t)
+                (push (cons (match-beginning 0) (match-end 0))
+                      cands)))))
+        (let ((res (avy-process (nreverse cands))))
+          (if-let ((from (car-safe res))
+                   (to (cdr-safe res)))
+              (progn
+                (ivy--pulse-region from to)
+                (buffer-substring-no-properties from to))
+            (message "No addresses to yank in this buffer")))))))
+
+(defmacro with-avy (&rest body)
+  "Execute BODY if avy is intalled."
+  (declare (indent 0) (debug t))
+  `(if (featurep 'avy)
+       ,@body
+     (message "avy not installed")))
+
+(defmacro define-address-avy (name field pat)
+  "Create an avy search for yanking an address from FIELD."
+  (declare (debug t))
+  (let ((pattern (cl-gensym "pattern")))
+    `(defun ,name (,pattern)
+       ,(format "Yank an address from field `%s' using avy.
+
+If PATTERN is non-nil, insert `%s' before the yanked result
+if it's not already inserted." (capitalize field) pat)
+       (interactive "P")
+       (if (featurep 'avy)
+           (progn
+             (let (res)
+               (with-ivy-window
+                 (setq res (counsel-mairix--avy-address ,field)))
+               (when res
+                 (counsel-mairix--insert-pattern ,pat ,pattern)
+                 (when (= -1 (prefix-numeric-value current-prefix-arg))
+                   (insert "~"))
+                 (insert res))))
+         (message "avy not installed")))))
+
+(define-address-avy counsel-mairix-avy-from "from" "f:")
+(define-address-avy counsel-mairix-avy-to "to" "t:")
+(define-address-avy counsel-mairix-avy-cc "cc" "c:")
+
+(defun counsel-mairix--avy-yank-word (bounds)
+  "Avy a word within BOUNDS."
+  (when-let ((beg (car-safe bounds))
+             (end (cdr-safe bounds))
+             (word (avy-jump "\\b\\(\\w+\\)\\b"
+                             :window-flip nil
+                             :beg beg
+                             :end end
+                             :group 1)))
+    (when (consp word)
+      (setq yanked (buffer-substring-no-properties
+                    (car word) (cdr word))))))
+
+(defun counsel-mairix-avy-subject-word (pattern)
+  "Avy search a single word from the subject.
+
+If PATTERN is non-nil, insert \"s:\" into the search query
+if not already present. With negative prefix argument
+`\\[negative-argument]' negate the pattern by inserting `~'."
+  (interactive "P")
+  (with-avy
+    (let ((subjpat "s:")
+          yanked)
+      (with-ivy-window
+        (setq yanked (counsel-mairix--avy-yank-word
+                      (counsel-mairix--field-bounds "subject"))))
+      (when yanked
+        (counsel-mairix--i subjpat pattern)
+        (when (= -1 (prefix-numeric-value current-prefix-arg))
+          (insert "~"))
+        (insert yanked)))))
+
+(defun counsel-mairix-avy-body-word (pattern)
+  "Avy search a single word from the body.
+
+If PATTERN is non-nil, insert `b:' before the query if it's not
+already inserted."
+  (interactive "P")
+  (with-avy
+    (let ((bodypat "b:")
+          yanked)
+      (with-ivy-window
+        (setq yanked
+              (counsel-mairix--avy-yank-word
+               (save-excursion
+                 (save-restriction
+                   (goto-char (point-min))
+                   (re-search-forward "\n\n" nil t)
+                   (cons (point) (point-max))))))
+        (when (consp yanked)
+          (ivy--pulse-region (car yanked) (cdr yanked))))
+      (when yanked
+        (counsel-mairix--insert-pattern bodypat pattern) 
+        (when (= -1 (prefix-numeric-value current-prefix-arg))
+          (insert "~"))
+        (insert yanked)))))
 
 (defvar counsel-mairix-map
   (let ((map (make-sparse-keymap)))
@@ -282,6 +436,11 @@ before formating it."
     (define-key map (kbd "C-c C-t")   'counsel-mairix-toggle-threads)
     (define-key map (kbd "C-c C-s s") 'counsel-mairix-save-current-search)
     (define-key map (kbd "C-c C-s i") 'counsel-mairix-insert-saved-search)
+    (define-key map (kbd "C-c C-a t") 'counsel-mairix-avy-to)
+    (define-key map (kbd "C-c C-a c") 'counsel-mairix-avy-cc)
+    (define-key map (kbd "C-c C-a f") 'counsel-mairix-avy-from)
+    (define-key map (kbd "C-c C-a s") 'counsel-mairix-avy-subject-word)
+    (define-key map (kbd "C-c C-a b") 'counsel-mairix-avy-body-word)
     map)
   "Keymap for `counsel-mairix'.")
 

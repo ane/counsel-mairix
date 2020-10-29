@@ -70,24 +70,51 @@ refer to their documentation in Emacs for more information.
 
 ## Keybindings in the Ivy search
 
+### General keybindings
+
 | Binding              | Description                |
 |:---------------------|:---------------------------|
 | <kbd>C-c C-t</kbd>   | Toggle threading           |
 | <kbd>C-c C-s i</kbd> | Insert saved mairix search |
 | <kbd>C-c C-s s</kbd> | Save current search        |
 
+### Bindings when viewing an email
+
 If you're viewing an email in one of the major modes Mairix supports, you can
 hit these bindings to add them to your search string:
 
-| Binding              | Description                                           |
-|:---------------------|:------------------------------------------------------|
-| <kbd>C-c C-f f</kbd> | Yank the `From` value as `f:...` in your search       |
-| <kbd>C-c C-f s</kbd> | Yank the `Subject` value as `s:...` in your search    |
-| <kbd>C-c C-f t</kbd> | Yank the `To` value as `t:...` in your search         |
-| <kbd>C-c C-f i</kbd> | Yank the `Message-Id` value as `f:...` in your search |
+| Binding              | Description                               |
+|:---------------------|:------------------------------------------|
+| <kbd>C-c C-f f</kbd> | Yank the `From` value as in your search   |
+| <kbd>C-c C-f s</kbd> | Yank the `Subject` value into your search |
+| <kbd>C-c C-f t</kbd> | Yank the `To` value into your search      |
+| <kbd>C-c C-f i</kbd> | Yank the `Message-Id` into your search    |
 
 Remember that the default binding <kbd>M-j</kbd> (`ivy-yank-word`) to yank
 things your cursor is on to insert it into the minibuffer.
+
+With a negative prefix argument (<kbd>M--</kbd> or <kbd>C-u -</kbd>), insert a
+*negated* search of the form `f:~foo@bar.com` which would search messages
+**not** matching that address. This also applies for avy searches below.
+
+#### [avy](https://github.com/abo-abo/avy) bindings
+
+If avy is installed, the following avy search refinements are available.
+
+| Binding              | Description                                                   |
+|----------------------|---------------------------------------------------------------|
+| <kbd>C-c C-a t</kbd> | Avy pick one `To` address and insert it into the search       |
+| <kbd>C-c C-a c</kbd> | Avy pick one `CC` address and insert it into the search       |
+| <kbd>C-c C-a s</kbd> | Avy pick one word from `Subject` and insert into the search   |
+| <kbd>C-c C-a b</kbd> | Avy pick one word from the body and insert into the search    |
+| <kbd>C-c C-a a</kbd> | Avy pick any word from the message and insert into the search |
+
+With the prefix argument, it will insert the respective mairix search pattern
+(`f:` for `From`) before the picked item. If the pattern is already inserted,
+the pattern is refined, i.e. if the search string is `t:foo@bar.com`, picking a
+new address `xyz@zy.com` will turn it into `t:foo@bar.com,xyz@zy.com`, unless
+the prefix argument is given, in which case a new pattern is inserted, turning
+it into `t:foo@bar.com t:xyz@zy.com`. This does not apply for yanking anything.
 
 ## Customization
 
