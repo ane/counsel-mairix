@@ -238,6 +238,12 @@ the recently used searches."
     (should (equal (ivy-input '(call-interactively 'counsel-mairix-search-thread) "")
                    "m:E1j8FZ0-0004sb-I6@fencepost.gnu.org"))))
 
+(ert-deftest test-counsel-mairix-avy-subject ()
+  (with-test-mairix
+    (rmail "./tests/feb-2020-emacs-devel.mbox")
+    (should (equal (ivy-input '(counsel-mairix-search-thread) "C-c C-a s a")
+                   "ripuli"))))
+
 ;; Local Variables:
 ;; checkdoc-force-docstrings-flag: nil
 ;; End:

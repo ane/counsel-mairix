@@ -146,12 +146,10 @@ every time.")
          (num (counsel-mairix-rmail-result-msgnum result))
          (inhibit-message t)
          
-         (tmp
-          (if-let ((buf counsel-mairix-ephemeral-search-buffer)
-                   (_    (bufferp buf)))
-              (buffer-file-name buf)
-            (expand-file-name (make-temp-name mairix-search-file)
-                              temporary-file-directory)))
+         (tmp (if (bufferp counsel-mairix-ephemeral-search-buffer)
+                  (buffer-file-name counsel-mairix-ephemeral-search-buffer)
+                (expand-file-name (make-temp-name mairix-search-file)
+                                  temporary-file-directory)))
          (revert-without-query (list (regexp-quote
                                       (file-name-nondirectory tmp)))))
     ;; make a copy of the search file, since if we start
@@ -427,7 +425,7 @@ if not already present. With negative prefix argument
         (setq yanked (counsel-mairix--avy-yank-word
                       (counsel-mairix--field-bounds "subject"))))
       (when yanked
-        (counsel-mairix--i subjpat pattern)
+        (counsel-mairix--insert subjpat pattern)
         (when (= -1 (prefix-numeric-value current-prefix-arg))
           (insert "~"))
         (insert yanked)))))
