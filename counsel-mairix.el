@@ -97,24 +97,23 @@ Include threads in the result if THREADS is non-nil.")
 (cl-defstruct counsel-mairix-rmail-result
   "A Mairix result entry to be displayed in Rmail."
   mbox-file msgnum)
+(counsel-mairix-run-search 'rmail "asd" t)
 
 (cl-defmethod counsel-mairix-run-search ((_ (eql rmail)) search-string threads)
   "Perform a Mairix search using SEARCH-STRING using Rmail.
 
 If THREADS is non-nil, include threads."
   (require 'rmail)
-  (let ((search-file (counsel-mairix-search-file))
-        (large-file-warning-threshold nil)
-        (rmail-display-summary t)
-        sumbuf rmailbuf results)
+  (let* ((search-file (make-temp-name "search.mbox"))
+         (full-file (concat (file-name-directory (expand-file-name mairix-file-path)) search-file))
+         (large-file-warning-threshold nil)
+         (revert-without-query (list (regexp-quote mairix-search-file)))
+         (rmail-display-summary t)
+         sumbuf rmailbuf results)
     (progn
       (save-window-excursion
-        (mairix-call-mairix search-string nil threads)
-        ;; The search mbox might be open somewhere. Close it,
-        ;; because its contents will change.
-        (when-let ((searchbuffer (find-buffer-visiting search-file)))
-          (kill-buffer searchbuffer))
-        (rmail search-file)
+        (mairix-call-mairix search-string search-file threads)
+        (rmail full-file)
         (with-current-buffer
             rmail-buffer
           (setq rmailbuf rmail-buffer)
@@ -130,7 +129,7 @@ If THREADS is non-nil, include threads."
       (mapcar
        (lambda (str)
          (when-let ((num (string-to-number (substring str 0 6)))
-                    (res (make-counsel-mairix-rmail-result :msgnum num :mbox-file search-file)))
+                    (res (make-counsel-mairix-rmail-result :msgnum num :mbox-file full-file)))
            ;; Counsel doesn't support rich results so we have to stuff things
            ;; into text properties.
            (propertize str 'result res)))
@@ -232,11 +231,18 @@ before formating it."
       (setq from (counsel-mairix--get-field field)))
     (when from
       (counsel-mairix--insert-pattern pattern new)
+      
       (when (= -1 (prefix-numeric-value current-prefix-arg))
         (insert "~"))
+      
       (insert (if process
                   (funcall process from)
-                from)))))
+                from)))
+    
+    (with-ivy-window
+      (when-let ((bounds (counsel-mairix--field-bounds field)))
+        (let ((ivy-pulse-delay (when (numberp ivy-pulse-delay) 1.5)))
+          (ivy--pulse-region (car bounds) (cdr bounds)))))))
 
 (defun counsel-mairix-insert-from (new)
   "Insert the `From:' field of a mail message into the minibuffer."
@@ -333,7 +339,11 @@ Each tree leaf will return one email address selected by the user."
           (if-let ((from (car-safe res))
                    (to (cdr-safe res)))
               (progn
-                (ivy--pulse-region from to)
+                ;; FIXME give mairix some time to rest, so that the
+                ;; pulse is visible - is there a hook for this? could then
+                ;; just pulse it once mairix is finished
+                (let ((ivy-pulse-delay (when (numberp ivy-pulse-delay) 1.5)))
+                  (ivy--pulse-region from to))
                 (buffer-substring-no-properties from to))
             (message "No addresses to yank in this buffer")))))))
 
@@ -363,7 +373,7 @@ if it's not already inserted." (capitalize field) pat)
                  (counsel-mairix--insert-pattern ,pat ,pattern)
                  (when (= -1 (prefix-numeric-value current-prefix-arg))
                    (insert "~"))
-                 (insert res))))
+                 (insert (replace-regexp-in-string "~" "\\~" res nil 'literal)))))
          (message "avy not installed")))))
 
 (define-address-avy counsel-mairix-avy-from "from" "f:")
@@ -380,6 +390,7 @@ if it's not already inserted." (capitalize field) pat)
                              :end end
                              :group 1)))
     (when (consp word)
+      (ivy--pulse-region (car word) (cdr word))
       (setq yanked (buffer-substring-no-properties
                     (car word) (cdr word))))))
 
@@ -418,9 +429,7 @@ already inserted."
                  (save-restriction
                    (goto-char (point-min))
                    (re-search-forward "\n\n" nil t)
-                   (cons (point) (point-max))))))
-        (when (consp yanked)
-          (ivy--pulse-region (car yanked) (cdr yanked))))
+                   (cons (point) (point-max)))))))
       (when yanked
         (counsel-mairix--insert-pattern bodypat pattern) 
         (when (= -1 (prefix-numeric-value current-prefix-arg))
