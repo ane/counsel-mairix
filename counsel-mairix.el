@@ -104,7 +104,6 @@ Include threads in the result if THREADS is non-nil.")
 If THREADS is non-nil, include threads."
   (require 'rmail)
   (let* ((search-file (counsel-mairix-search-file))
-         (full-file (concat (file-name-directory (expand-file-name mairix-file-path)) search-file))
          (large-file-warning-threshold nil)
          (revert-without-query (list (regexp-quote mairix-search-file)))
          (rmail-display-summary t)
@@ -134,7 +133,7 @@ If THREADS is non-nil, include threads."
        (seq-remove #'string-empty-p results)))))
 
 (defvar counsel-mairix-ephemeral-search-buffer nil
-  "Buffer name to hold the current search result. 
+  "Buffer name to hold the current search result.
 
 Prevent `\\[ivy-next-line-and-call]' (etc.) opening a new buffer
 every time.")
@@ -149,9 +148,8 @@ every time.")
          
          (tmp
           (if-let ((buf counsel-mairix-ephemeral-search-buffer)
-                   (_    (bufferp buf))
-                   (file (buffer-file-name buf)))
-              file
+                   (_    (bufferp buf)))
+              (buffer-file-name buf)
             (expand-file-name (make-temp-name mairix-search-file)
                               temporary-file-directory)))
          (revert-without-query (list (regexp-quote
@@ -474,6 +472,12 @@ already inserted."
     map)
   "Keymap for `counsel-mairix'.")
 
+(defun counsel-mairix-cleanup ()
+  (when-let ((search (find-buffer-visiting
+                      (expand-file-name mairix-search-file
+                                        mairix-file-path))))
+    (kill-buffer search)))
+
 ;;;###autoload
 (defun counsel-mairix (&optional initial-input)
   "Search using Mairix with an Counsel frontend.
@@ -502,6 +506,7 @@ If INITIAL-INPUT is given, the search has that as the initial input."
               :initial-input initial-input
               :action #'counsel-mairix-display-result-message
               :keymap counsel-mairix-map
+              :unwind 'counsel-mairix-cleanup
               :history 'counsel-mairix-history
               :caller 'counsel-mairix)))
 
