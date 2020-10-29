@@ -238,11 +238,53 @@ the recently used searches."
     (should (equal (ivy-input '(call-interactively 'counsel-mairix-search-thread) "")
                    "m:E1j8FZ0-0004sb-I6@fencepost.gnu.org"))))
 
-(ert-deftest test-counsel-mairix-avy-subject ()
-  (with-test-mairix
-    (rmail "./tests/feb-2020-emacs-devel.mbox")
-    (should (equal (ivy-input '(counsel-mairix-search-thread) "C-c C-a s a")
-                   "ripuli"))))
+(when (featurep 'avy)
+
+  (ert-deftest test-counsel-mairix-avy-subject ()
+    (with-test-mairix
+     (rmail "./tests/feb-2020-emacs-devel.mbox")
+     (should (equal (ivy-input '(counsel-mairix) "C-c C-a s s")
+                    "Support"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a s s")
+                    "s:Support"))
+     (should (equal (ivy-input '(counsel-mairix) "M-- C-c C-a s s")
+                    "s:~Support"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a s s C-c C-a s d")
+                    "s:Support,for"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a s s SPC C-u C-c C-a s d")
+                    "s:Support s:for"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a s s SPC M-- C-c C-a s d")
+                    "s:Support s:~for"))))
+
+  (ert-deftest test-counsel-mairix-avy-cc ()
+    (with-test-mairix
+     (rmail "./tests/feb-2020-emacs-devel.mbox")
+     (should (equal (ivy-input '(counsel-mairix) "C-c C-a c d")
+                    "emacs-devel@gnu.org"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a c d")
+                    "c:emacs-devel@gnu.org"))
+     (should (equal (ivy-input '(counsel-mairix) "M-- C-c C-a c d")
+                    "c:~emacs-devel@gnu.org"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a c d C-c C-a c s")
+                    "c:emacs-devel@gnu.org,zevlg@yandex.ru"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a c d SPC C-u C-c C-a c s")
+                    "c:emacs-devel@gnu.org c:zevlg@yandex.ru"))
+     (should (equal (ivy-input '(counsel-mairix) "C-u C-c C-a c d SPC M-- C-c C-a c s")
+                    "c:emacs-devel@gnu.org c:~zevlg@yandex.ru"))))
+
+  ;; it's the same macro... bit pointless?
+  (ert-deftest test-counsel-mairix-avy-from ()
+    (with-test-mairix
+     (rmail "./tests/feb-2020-emacs-devel.mbox")
+     (should (equal (ivy-input '(counsel-mairix) "C-c C-a f")
+                    "rms@gnu.org"))))
+
+  (ert-deftest test-counsel-mairix-avy-word ()
+    (with-test-mairix
+     (rmail "./tests/feb-2020-emacs-devel.mbox")
+     (should (equal (ivy-input '(counsel-mairix) "C-c C-a b g f")
+                    "Snowden's"))))
+  )
 
 ;; Local Variables:
 ;; checkdoc-force-docstrings-flag: nil

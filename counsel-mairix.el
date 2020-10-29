@@ -404,8 +404,7 @@ if it's not already inserted." (capitalize field) pat)
              (word (avy-jump "\\b\\(\\w+\\)\\b"
                              :window-flip nil
                              :beg beg
-                             :end end
-                             :group 1)))
+                             :end end)))
     (when (consp word)
       (ivy--pulse-region (car word) (cdr word))
       (setq yanked (buffer-substring-no-properties
@@ -425,7 +424,7 @@ if not already present. With negative prefix argument
         (setq yanked (counsel-mairix--avy-yank-word
                       (counsel-mairix--field-bounds "subject"))))
       (when yanked
-        (counsel-mairix--insert subjpat pattern)
+        (counsel-mairix--insert-pattern subjpat pattern)
         (when (= -1 (prefix-numeric-value current-prefix-arg))
           (insert "~"))
         (insert yanked)))))

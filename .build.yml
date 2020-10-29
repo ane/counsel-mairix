@@ -20,6 +20,7 @@ tasks:
                              package-archive-contents 
                              (quote equal)))))' \
           --eval '(install-latest (quote ivy))' \
+          --eval '(install-latest (quote avy))' \
           -l counsel-mairix.el \
           -l counsel-mairix-tests.el \
           --eval '(ert-run-tests-batch-and-exit (quote t))' 
