@@ -97,50 +97,71 @@ Include threads in the result if THREADS is non-nil.")
 (cl-defstruct counsel-mairix-rmail-result
   "A Mairix result entry to be displayed in Rmail."
   mbox-file msgnum)
-(counsel-mairix-run-search 'rmail "asd" t)
 
 (cl-defmethod counsel-mairix-run-search ((_ (eql rmail)) search-string threads)
   "Perform a Mairix search using SEARCH-STRING using Rmail.
 
 If THREADS is non-nil, include threads."
   (require 'rmail)
-  (let* ((search-file (make-temp-name "search.mbox"))
+  (let* ((search-file (counsel-mairix-search-file))
          (full-file (concat (file-name-directory (expand-file-name mairix-file-path)) search-file))
          (large-file-warning-threshold nil)
          (revert-without-query (list (regexp-quote mairix-search-file)))
          (rmail-display-summary t)
          sumbuf rmailbuf results)
     (progn
+      ;; Were we looking at a search file? If so, make a
+      ;; copy of it, so if no results appear, we don't lose
+      ;; results.
       (save-window-excursion
-        (mairix-call-mairix search-string search-file threads)
-        (rmail full-file)
-        (with-current-buffer
-            rmail-buffer
-          (setq rmailbuf rmail-buffer)
-          (setq sumbuf rmail-summary-buffer))
-        (when (and rmailbuf sumbuf)
-          (with-current-buffer sumbuf
-            (font-lock-ensure)
-            (setq results (split-string (buffer-string) "\n")))
-          (kill-buffer rmailbuf)
-          ;; The summary buffer might still be open. Kill it.
-          (when sumbuf
-            (kill-buffer sumbuf))))
+        (mairix-call-mairix search-string nil threads)
+        (save-excursion
+          (rmail search-file)
+          (when rmail-buffer
+            (set-buffer rmail-buffer)
+            (when rmail-summary-buffer
+              (with-current-buffer rmail-summary-buffer
+                (font-lock-ensure)
+                (setq results (split-string (buffer-string) "\n")))))))
       (mapcar
        (lambda (str)
          (when-let ((num (string-to-number (substring str 0 6)))
-                    (res (make-counsel-mairix-rmail-result :msgnum num :mbox-file full-file)))
+                    (res (make-counsel-mairix-rmail-result
+                          :msgnum num :mbox-file search-file)))
            ;; Counsel doesn't support rich results so we have to stuff things
            ;; into text properties.
            (propertize str 'result res)))
        (seq-remove #'string-empty-p results)))))
 
+(defvar counsel-mairix-ephemeral-search-buffer nil
+  "Buffer name to hold the current search result. 
+
+Prevent `\\[ivy-next-line-and-call]' (etc.) opening a new buffer
+every time.")
+
 (cl-defmethod counsel-mairix-display-result-message ((result counsel-mairix-rmail-result))
   "Display RESULT using Rmail."
   (require 'rmail)
-  (let ((large-file-warning-threshold nil))
-    (rmail (counsel-mairix-rmail-result-mbox-file result))
-    (rmail-show-message (counsel-mairix-rmail-result-msgnum result))))
+  (let* ((large-file-warning-threshold nil)
+         (res (counsel-mairix-rmail-result-mbox-file result))
+         (num (counsel-mairix-rmail-result-msgnum result))
+         (inhibit-message t)
+         
+         (tmp
+          (if-let ((buf counsel-mairix-ephemeral-search-buffer)
+                   (_    (bufferp buf))
+                   (file (buffer-file-name buf)))
+              file
+            (expand-file-name (make-temp-name mairix-search-file)
+                              temporary-file-directory)))
+         (revert-without-query (list (regexp-quote
+                                      (file-name-nondirectory tmp)))))
+    ;; make a copy of the search file, since if we start
+    ;; a new search, the displayed message will disappear
+    (copy-file res tmp t)
+    (rmail tmp)
+    (rmail-show-message num nil)
+    (setq counsel-mairix-ephemeral-search-buffer rmail-buffer)))
 
 
 ;; Gnus implementation of the generic methods.
