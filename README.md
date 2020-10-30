@@ -116,6 +116,18 @@ new address `xyz@zy.com` will turn it into `t:foo@bar.com,xyz@zy.com`, unless
 the prefix argument is given, in which case a new pattern is inserted, turning
 it into `t:foo@bar.com t:xyz@zy.com`. This does not apply for yanking anything.
 
+![avy demo](./demo2.gif)
+
+Here, I'm interested in emacs-devel discussions about key bindings, so I start
+by creating a subject search term using `s:`. I yank the words `key` and
+`bindings` using avy, note that the second yank inserts a comma to create a
+search of the form `s:key,binding` which matches when both `key` and `bindings`
+are mentioned. Then I'm also interested in what Stefan Monnier and Eli Zaretskii
+have to say about it, so I insert `f:` and yank one of the `Cc` targets using
+`C-a C-c c` and then add an OR search using `/` and then insert the `To` target
+using `C-c C-f t`. Finally, I'm just interested in what Stefan and Eli have to
+say about it, so I toggle threads OFF using `C-c C-t`.
+
 ## Customization
 
 counsel-mairix defines the following customization variables:
