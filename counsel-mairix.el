@@ -34,6 +34,12 @@
 ;;
 ;;   * `counsel-mairix' - run mairix search interactively
 ;;   * `counsel-mairix-save-search' - save a mairix search from your history
+;;   * `counsel-mairix-search-from' - start a search using the `From' header
+;;   * `counsel-mairix-search-thread' - start a search using the message id,
+;;     with threads enabled
+;;
+;; For counsel-mairix to work one only needs to have configured Mairix properly,
+;; see Info node `(mairix-el) Configuring mairix'.
 
 ;;; Code:
 (require 'cl-lib)
@@ -229,11 +235,19 @@ If `counsel-mairix-history' is empty, save `mairix-last-search'."
 (defun counsel-mairix--insert-pattern (pattern new)
   "If we can see PATTERN behind us, add to it.
 
+If something is between point and PATTERN, add a comma.
+
 Unless NEW non-nil, then insert a new pattern."
   (if (not new)
-      (if (save-excursion
-            (re-search-backward (regexp-quote pattern) nil t))
-          (insert ","))
+      (let* ((q (regexp-quote pattern))
+             (pat (concat (regexp-quote pattern)
+                          "\\(.*\\)?")))
+        (when (and (save-excursion
+                     (and (re-search-backward pat nil t)
+                          (not (string-empty-p
+                                (match-string-no-properties 1)))))
+                   (not (looking-back "[, ]")))
+          (insert ",")))
     (insert pattern)))
 
 (defun counsel-mairix--ivy-yank-field (pattern field new &optional process)
@@ -402,7 +416,7 @@ if it's not already inserted." (capitalize field) pat)
   (when-let ((beg (car-safe bounds))
              (end (cdr-safe bounds))
              (word (avy-jump "\\b\\(\\w+\\)\\b"
-                             :window-flip nil
+                             :window-flip t
                              :beg beg
                              :end end)))
     (when (consp word)
