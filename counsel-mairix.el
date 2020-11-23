@@ -1,8 +1,10 @@
+
 ;;; counsel-mairix.el --- Counsel interface for Mairix -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2020 Antoine Kalmbach
 
 ;; Author: Antoine Kalmbach <ane@iki.fi>
+;; URL: https://sr.ht/~ane/counsel-mairix
 ;; Created: 2020-10-10
 ;; Version: 0.1
 ;; Keywords: mail
@@ -46,6 +48,7 @@
 (require 'cl-generic)
 (require 'mairix)
 (require 'ivy)
+(require 'rmail)
 (require 'subr-x)
 (require 'seq)
 
@@ -104,6 +107,8 @@ Include threads in the result if THREADS is non-nil.")
   "A Mairix result entry to be displayed in Rmail."
   mbox-file msgnum)
 
+
+
 (cl-defmethod counsel-mairix-run-search ((_ (eql rmail)) search-string threads)
   "Perform a Mairix search using SEARCH-STRING using Rmail.
 
@@ -113,30 +118,32 @@ If THREADS is non-nil, include threads."
          (large-file-warning-threshold nil)
          (revert-without-query (list (regexp-quote mairix-search-file)))
          (rmail-display-summary t)
-         sumbuf rmailbuf results)
+         results)
     (progn
       ;; Were we looking at a search file? If so, make a
       ;; copy of it, so if no results appear, we don't lose
       ;; results.
-      (save-window-excursion
-        (mairix-call-mairix search-string nil threads)
-        (save-excursion
-          (rmail search-file)
-          (when rmail-buffer
-            (set-buffer rmail-buffer)
-            (when rmail-summary-buffer
-              (with-current-buffer rmail-summary-buffer
-                (font-lock-ensure)
-                (setq results (split-string (buffer-string) "\n")))))))
-      (mapcar
-       (lambda (str)
-         (when-let ((num (string-to-number (substring str 0 6)))
-                    (res (make-counsel-mairix-rmail-result
-                          :msgnum num :mbox-file search-file)))
-           ;; Counsel doesn't support rich results so we have to stuff things
-           ;; into text properties.
-           (propertize str 'result res)))
-       (seq-remove #'string-empty-p results)))))
+      (when (mairix-call-mairix search-string nil threads)
+        (save-window-excursion
+          (save-excursion
+            (widen)
+            (rmail search-file)
+            (when rmail-buffer
+              (set-buffer rmail-buffer)
+              (when rmail-summary-buffer
+                (with-current-buffer rmail-summary-buffer
+                  (font-lock-ensure)
+                  (setq results (split-string (buffer-string) "\n"))))))))
+      (if (not (null results))
+          (mapcar
+           (lambda (str)
+             (when-let ((num (string-to-number (substring str 0 6)))
+                        (res (make-counsel-mairix-rmail-result
+                              :msgnum num :mbox-file search-file)))
+               ;; Counsel doesn't support rich results so we have to stuff things
+               ;; into text properties.
+               (propertize str 'result res)))
+           (seq-remove #'string-empty-p results))))))
 
 (defvar counsel-mairix-ephemeral-search-buffer nil
   "Buffer name to hold the current search result.
@@ -239,14 +246,13 @@ If something is between point and PATTERN, add a comma.
 
 Unless NEW non-nil, then insert a new pattern."
   (if (not new)
-      (let* ((q (regexp-quote pattern))
-             (pat (concat (regexp-quote pattern)
+      (let* ((pat (concat (regexp-quote pattern)
                           "\\(.*\\)?")))
         (when (and (save-excursion
                      (and (re-search-backward pat nil t)
                           (not (string-empty-p
                                 (match-string-no-properties 1)))))
-                   (not (looking-back "[, ]")))
+                   (not (looking-back "[, ]" 1)))
           (insert ",")))
     (insert pattern)))
 
@@ -307,18 +313,15 @@ before formating it."
 (defun counsel-mairix-save-current-search ()
   "Save the current search, prompting for its name."
   (interactive)
-  (let ((enable-recursive-minibuffers t)
-        (prev mairix-last-search))
-    (unwind-protect
-        (let ((mairix-last-search ivy-text))
-          (mairix-save-search))
-      (setq prev mairix-last-search))))
+  (let ((enable-recursive-minibuffers t))
+    (let ((mairix-last-search ivy-text))
+      (mairix-save-search))))
 
 (defun counsel-mairix-insert-saved-search ()
   "Insert a saved mairix search."
   (interactive)
   (let ((enable-recursive-minibuffers t)
-        (searches (mapcar 'cdr mairix-saved-searches)))
+        (searches (mapcar #'cdr mairix-saved-searches)))
     (insert (completing-read "Insert Mairix search: "
                              searches
                              nil t))))
@@ -378,15 +381,18 @@ Each tree leaf will return one email address selected by the user."
                 (buffer-substring-no-properties from to))
             (message "No addresses to yank in this buffer")))))))
 
-(defmacro with-avy (&rest body)
+(defmacro counsel-mairix-with-avy (&rest body)
   "Execute BODY if avy is intalled."
   (declare (indent 0) (debug t))
-  `(if (featurep 'avy)
+  `(if (require 'avy nil t)
        ,@body
      (message "avy not installed")))
 
-(defmacro define-address-avy (name field pat)
-  "Create an avy search for yanking an address from FIELD."
+(defmacro counsel-mairix-defavy (name field pat)
+  "Create an avy search for yanking an address from FIELD.
+
+NAME is the name of the binding, and PAT is the pattern to use
+when inserting searches."
   (declare (debug t))
   (let ((pattern (cl-gensym "pattern")))
     `(defun ,name (,pattern)
@@ -395,7 +401,7 @@ Each tree leaf will return one email address selected by the user."
 If PATTERN is non-nil, insert `%s' before the yanked result
 if it's not already inserted." (capitalize field) pat)
        (interactive "P")
-       (if (featurep 'avy)
+       (if (require 'avy nil t)
            (progn
              (let (res)
                (with-ivy-window
@@ -407,9 +413,9 @@ if it's not already inserted." (capitalize field) pat)
                  (insert (replace-regexp-in-string "~" "\\~" res nil 'literal)))))
          (message "avy not installed")))))
 
-(define-address-avy counsel-mairix-avy-from "from" "f:")
-(define-address-avy counsel-mairix-avy-to "to" "t:")
-(define-address-avy counsel-mairix-avy-cc "cc" "c:")
+(counsel-mairix-defavy counsel-mairix-avy-from "from" "f:")
+(counsel-mairix-defavy counsel-mairix-avy-to "to" "t:")
+(counsel-mairix-defavy counsel-mairix-avy-cc "cc" "c:")
 
 (defun counsel-mairix--avy-yank-word (bounds)
   "Avy a word within BOUNDS."
@@ -421,8 +427,8 @@ if it's not already inserted." (capitalize field) pat)
                              :end end)))
     (when (consp word)
       (ivy--pulse-region (car word) (cdr word))
-      (setq yanked (buffer-substring-no-properties
-                    (car word) (cdr word))))))
+      (buffer-substring-no-properties
+       (car word) (cdr word)))))
 
 (defun counsel-mairix-avy-subject-word (pattern)
   "Avy search a single word from the subject.
@@ -431,7 +437,7 @@ If PATTERN is non-nil, insert \"s:\" into the search query
 if not already present. With negative prefix argument
 `\\[negative-argument]' negate the pattern by inserting `~'."
   (interactive "P")
-  (with-avy
+  (counsel-mairix-with-avy
     (let ((subjpat "s:")
           yanked)
       (with-ivy-window
@@ -449,7 +455,7 @@ if not already present. With negative prefix argument
 If PATTERN is non-nil, insert `b:' before the query if it's not
 already inserted."
   (interactive "P")
-  (with-avy
+  (counsel-mairix-with-avy
     (let ((bodypat "b:")
           yanked)
       (with-ivy-window
@@ -461,7 +467,7 @@ already inserted."
                    (re-search-forward "\n\n" nil t)
                    (cons (point) (point-max)))))))
       (when yanked
-        (counsel-mairix--insert-pattern bodypat pattern) 
+        (counsel-mairix--insert-pattern bodypat pattern)
         (when (= -1 (prefix-numeric-value current-prefix-arg))
           (insert "~"))
         (insert yanked)))))
@@ -484,6 +490,7 @@ already inserted."
   "Keymap for `counsel-mairix'.")
 
 (defun counsel-mairix-cleanup ()
+  "Unwind forms after quitting `counsel-mairix'."
   (when-let ((search (find-buffer-visiting
                       (expand-file-name mairix-search-file
                                         mairix-file-path))))
