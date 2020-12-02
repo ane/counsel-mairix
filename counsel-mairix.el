@@ -1,4 +1,3 @@
-
 ;;; counsel-mairix.el --- Counsel interface for Mairix -*- lexical-binding: t -*-
 
 ;; Copyright (c) 2020 Antoine Kalmbach
@@ -282,22 +281,30 @@ before formating it."
           (ivy--pulse-region (car bounds) (cdr bounds)))))))
 
 (defun counsel-mairix-insert-from (new)
-  "Insert the `From:' field of a mail message into the minibuffer."
+  "Insert the `From:' field of a mail message into the minibuffer.
+Argument NEW means insert mairix search term `f:' as well, even
+if it is already inserted"
   (interactive "P")
   (counsel-mairix--ivy-yank-field "f:" "from" new))
 
 (defun counsel-mairix-insert-to (new)
-  "Insert the `Subject:' field of a mail message into the minibuffer."
+  "Insert the `Subject:' field of a mail message into the minibuffer.
+Argument NEW means insert mairix search term `t:' as well, even
+if it is already inserted."
   (interactive "P")
   (counsel-mairix--ivy-yank-field "t:" "to" new))
 
 (defun counsel-mairix-insert-subject (new)
-  "Insert the `Subject:' field of a mail message into the minibuffer."
+  "Insert the `Subject:' field of a mail message into the minibuffer.
+Argument NEW means insert mairix search term `s:' as well, even
+if it is already inserted."
   (interactive "P")
   (counsel-mairix--ivy-yank-field "s:" "subject" new))
 
 (defun counsel-mairix-insert-message-id (new)
-  "Insert the `Message-Id:' field of a mail message into the minibuffer."
+  "Insert the `Message-Id:' field of a mail message into the minibuffer.
+Argument NEW means insert mairix search term `m:' as well, even
+if it is already inserted."
   (interactive "P")
   (counsel-mairix--ivy-yank-field "m:" "message-id" new))
 
