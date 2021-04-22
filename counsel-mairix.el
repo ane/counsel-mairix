@@ -333,6 +333,9 @@ if it is already inserted."
                              searches
                              nil t))))
 
+(declare-function avy-process "ext:avy.el")
+(declare-function avy-jump "ext:avy.el")
+
 ;;; avy interface -- these features do nothing if avy isn't installed
 (defun counsel-mairix--field-bounds (field)
   "Get the bounds for FIELD in the address.
